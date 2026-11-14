@@ -1,0 +1,12 @@
+{
+  "name": "fixed-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DevGuard test fixture",
+  "main": "src/index.js",
+  "dependencies": {
+    "express": "^4.21.2",
+    "lodash": "^4.17.21",
+    "minimist": "^1.2.8"
+  }
+}

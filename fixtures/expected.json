@@ -1,0 +1,15 @@
+{
+  "vulnerable-app": {
+    "dependency": {"min_findings": 3},
+    "secret":     {"min_findings": 3},
+    "config":     {"min_findings": 5}
+  },
+  "fixed-app": {
+    "secret": {"max_findings": 0},
+    "config": {"max_high_or_critical": 0}
+  },
+  "comparison": {
+    "resolved_min": {"dependency": 1, "secret": 3, "config": 3}
+  },
+  "forbidden_strings_file": "tests/fixture_secrets.txt"
+}
