@@ -298,3 +298,8 @@ def list_evaluation_runs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
 
 def get_evaluation_run(conn: sqlite3.Connection, run_id: int) -> dict[str, Any] | None:
     return _row(conn.execute("SELECT * FROM evaluation_runs WHERE id=?", (run_id,)).fetchone())
+
+
+def list_targets(conn: sqlite3.Connection) -> list[str]:
+    return [r["target_path"] for r in conn.execute(
+        "SELECT DISTINCT target_path FROM scans ORDER BY target_path")]

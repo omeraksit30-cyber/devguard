@@ -15,3 +15,8 @@ Decisions taken where the specification was silent or ambiguous. The simplest, s
 | D9 | Gitleaks stderr | `run_tool(..., keep_stderr=False)` sends Gitleaks stderr to `/dev/null`, so it is never held in memory at all. |
 | D10 | Process isolation | Scanners run in their own session; on timeout the whole process group is killed (SIGKILL). |
 | D11 | Unredacted test sample | The "unredacted Gitleaks report" used by leak tests is built in memory from `tests/fixture_secrets.txt` instead of being stored as another file, so fake secrets live in exactly one place outside the fixture. |
+| D12 | Scanner working directory | Scanners run with `cwd` set to the private temp directory, not the target, so a scanned project cannot inject tool configuration (e.g. `trivy.yaml`) through the working directory. |
+| D13 | Stored exception text | For unexpected adapter exceptions only the exception type name is stored (for every adapter, not just Gitleaks), because exception text could echo report content. |
+| D14 | Summary counts | `summary.total` and `by_severity` count every stored finding, including false positives; `summary.false_positives` gives their number. Only the risk score excludes them. |
+| D15 | `views.py` | Added one module not in the spec tree: it assembles the scan detail / summary read model shared by routes, export and evaluation. |
+| D16 | List responses | `GET /api/scans` returns `{"items": [...], "targets": [...]}` and findings lists return `{"total": n, "items": [...]}` so the UI can paginate and build target filters without extra endpoints. |

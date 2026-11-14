@@ -11,8 +11,13 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import __version__
+from contextlib import asynccontextmanager
+
+from . import __version__, db
 from .config import Settings, get_settings
+from .errors import ApiError
+from .orchestrator import Orchestrator
+from .routes import findings, scans, system
 
 log = logging.getLogger("devguard")
 
@@ -31,21 +36,22 @@ SECURITY_HEADERS = {
 }
 
 
-class ApiError(Exception):
-    """Raised by routes to return the standard error shape."""
-
-    def __init__(self, status: int, error: str, message: str):
-        self.status, self.error, self.message = status, error, message
-
-
 def error_response(status: int, error: str, message: str) -> JSONResponse:
     return JSONResponse({"error": error, "message": message}, status_code=status)
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, orchestrator: Orchestrator | None = None) -> FastAPI:
     settings = settings or get_settings()
-    app = FastAPI(title="DevGuard", version=__version__)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        db.init_db(settings.database)
+        yield
+        app.state.orchestrator.shutdown()
+
+    app = FastAPI(title="DevGuard", version=__version__, lifespan=lifespan)
     app.state.settings = settings
+    app.state.orchestrator = orchestrator or Orchestrator(settings)
     allowed_origins = {f"http://127.0.0.1:{settings.port}", f"http://localhost:{settings.port}"}
 
     @app.middleware("http")
@@ -81,9 +87,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         fields = ", ".join(".".join(str(p) for p in e.get("loc", ())) for e in exc.errors())
         return error_response(422, "validation_error", f"Invalid request: {fields}")
 
-    @app.get("/api/health")
-    def health():
-        return {"status": "ok"}
+    for module in (system, scans, findings):
+        app.include_router(module.router)
+
+    @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+                   include_in_schema=False)
+    def api_not_found(rest: str):
+        raise ApiError(404, "not_found", "Unknown API endpoint.")
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
