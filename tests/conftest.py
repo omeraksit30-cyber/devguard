@@ -72,7 +72,8 @@ class FakeTools:
         if mode == "timeout":
             return real_runner.ToolResult(None, "", True, 1000)
         if mode == "fail":
-            return real_runner.ToolResult(2, f"fatal error {SECRETS[0]}" if keep_stderr else "", False, 5)
+            # Gitleaks stderr carries a secret here: the orchestrator must ignore it entirely.
+            return real_runner.ToolResult(2, f"leaked {SECRETS[0]}" if kind == "secret" else "fatal error", False, 5)
         if mode == "badjson":
             report.write_text('{"Results": [')
         elif mode == "clean":

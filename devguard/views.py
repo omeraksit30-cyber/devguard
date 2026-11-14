@@ -66,3 +66,10 @@ def scan_detail(conn: sqlite3.Connection, scan: dict[str, Any],
     if findings is None:
         findings = load_findings(conn, scan)
     return {**scan, "scanner_runs": runs, "summary": build_summary(scan, runs, findings)}
+
+
+def comparison(conn: sqlite3.Connection, base: dict[str, Any], head: dict[str, Any]) -> dict[str, Any]:
+    from .engine.compare import compare_scans
+    return compare_scans(base, head,
+                         db.get_scanner_runs(conn, base["id"]), db.get_scanner_runs(conn, head["id"]),
+                         load_findings(conn, base), load_findings(conn, head))

@@ -20,3 +20,9 @@ Decisions taken where the specification was silent or ambiguous. The simplest, s
 | D14 | Summary counts | `summary.total` and `by_severity` count every stored finding, including false positives; `summary.false_positives` gives their number. Only the risk score excludes them. |
 | D15 | `views.py` | Added one module not in the spec tree: it assembles the scan detail / summary read model shared by routes, export and evaluation. |
 | D16 | List responses | `GET /api/scans` returns `{"items": [...], "targets": [...]}` and findings lists return `{"total": n, "items": [...]}` so the UI can paginate and build target filters without extra endpoints. |
+| D17 | Trivy stderr (known limitation) | As specified, the last 2000 characters of Trivy's stderr are stored in `scanner_runs.error_message` when Trivy fails. Trivy runs with `--quiet` and reports errors about its own operation (database download, parse failures), not file contents, but DevGuard does not inspect that text. Gitleaks stderr is never captured at all. |
+| D18 | Comparison of the same scan | `GET /api/compare` with `base == head` returns `400 same_scan`. |
+| D19 | Evaluation evidence export | Added `GET /api/evaluation/runs/{id}/export` (Markdown attachment) for the "Export evidence" button, so the file is produced server-side with the same escaping as scan exports. |
+| D20 | Evaluation scans | The evaluation run performs three scans (vulnerable-app twice, then fixed-app); the repeat proves fingerprint stability. Check 03 inspects the database bytes, the API payloads as built by the same functions the routes use, and all three export formats for every scan. |
+| D21 | Export of unfinished scans | Exporting a `queued` or `running` scan returns `409 scan_not_finished`. |
+| D22 | HTML export CSP | The exported HTML file carries its own `<meta>` CSP (`default-src 'none'; style-src 'unsafe-inline'`), so it cannot load or run anything even when opened from disk. |

@@ -17,7 +17,7 @@ from . import __version__, db
 from .config import Settings, get_settings
 from .errors import ApiError
 from .orchestrator import Orchestrator
-from .routes import findings, scans, system
+from .routes import compare, evaluation, export, findings, scans, system, triage
 
 log = logging.getLogger("devguard")
 
@@ -87,7 +87,7 @@ def create_app(settings: Settings | None = None, orchestrator: Orchestrator | No
         fields = ", ".join(".".join(str(p) for p in e.get("loc", ())) for e in exc.errors())
         return error_response(422, "validation_error", f"Invalid request: {fields}")
 
-    for module in (system, scans, findings):
+    for module in (system, scans, findings, compare, triage, export, evaluation):
         app.include_router(module.router)
 
     @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
