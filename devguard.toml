@@ -1,0 +1,16 @@
+[server]
+host = "127.0.0.1"
+port = 8000
+
+[storage]
+database = "data/devguard.db"
+
+[scan]
+# Only directories under these roots may be scanned.
+allowed_roots = ["./fixtures"]
+timeout_seconds = 300
+max_report_bytes = 52428800      # 50 MB; exceeding it marks the scanner run "failed"
+
+[tools]
+trivy = "trivy"                  # looked up on PATH; an absolute path is also accepted
+gitleaks = "gitleaks"
