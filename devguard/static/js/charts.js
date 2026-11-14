@@ -34,7 +34,11 @@ export function trendChart(scans) {
   const max = Math.max(10, ...pts.map((p) => p.risk_score));
   const X = (i) => L + (i * (W - L - R)) / (pts.length - 1);
   const Y = (v) => T + (1 - v / max) * (H - T - B);
-  const label = pts.map((p) => `scan ${p.id}: ${p.risk_score}${p.status === "partial" ? " (partial)" : ""}`).join(", ");
+  // Partial and failed scans are incomplete: their score is not comparable to a full scan,
+  // so they are drawn hollow and labelled — a failed scan at 0 must not read as "clean".
+  const inc = (p) => p.incomplete ?? ["partial", "failed"].includes(p.status);
+  const note = (p) => (inc(p) ? ` (${p.status} scan, incomplete)` : "");
+  const label = pts.map((p) => `scan ${p.id}: ${p.risk_score}${note(p)}`).join(", ");
   const svg = s("svg", { class: "chart", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Risk score trend. ${label}` },
     s("line", { class: "axis", x1: L, y1: Y(0), x2: W - R, y2: Y(0) }),
     s("line", { class: "axis", x1: L, y1: T, x2: L, y2: Y(0) }),
@@ -43,9 +47,9 @@ export function trendChart(scans) {
     s("polyline", { class: "line", points: pts.map((p, i) => `${X(i)},${Y(p.risk_score)}`).join(" ") }));
   pts.forEach((p, i) => {
     svg.append(
-      s("circle", { class: "dot" + (p.status === "partial" ? " hollow" : ""), cx: X(i), cy: Y(p.risk_score), r: 4.5 },
-        s("title", {}, `Scan #${p.id}: ${p.risk_score}${p.status === "partial" ? " (partial scan)" : ""}`)),
+      s("circle", { class: "dot" + (inc(p) ? " hollow" : ""), cx: X(i), cy: Y(p.risk_score), r: 4.5 },
+        s("title", {}, `Scan #${p.id}: ${p.risk_score}${note(p)}`)),
       s("text", { x: X(i), y: H - 8, "text-anchor": "middle" }, `#${p.id}`));
   });
-  return h("div", {}, svg, h("p", { class: "small muted", text: "Hollow points are partial scans (some scanners did not run)." }));
+  return h("div", {}, svg, h("p", { class: "small muted", text: "Hollow points are partial or failed scans (some scanners did not run); their score is incomplete." }));
 }
