@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import {
-  CATEGORIES, CATEGORY_LABEL, SCANNER_LABEL, clear, errorBox, fmtTime, h, incompleteBadge, loading, mount,
+  CATEGORIES, CATEGORY_LABEL, SCANNER_LABEL, errorBox, fmtTime, h, incompleteBadge, loading, mount,
   riskLevelLabel, safeLink, severityBadge, statusBadge, statusLabel, table,
 } from "../dom.js";
 
@@ -128,9 +128,23 @@ export function findingDetail(id, onChanged) {
   return box;
 }
 
+let activeDrawerClose = null;
+
 export function openFindingDrawer(id, onChanged) {
+  activeDrawerClose?.();
   const previous = document.activeElement;
-  const close = () => { backdrop.remove(); drawer.remove(); document.removeEventListener("keydown", onKey); previous?.focus?.(); };
+  const outside = [...document.querySelectorAll("body > header, body > main, body > footer")];
+  outside.forEach((el) => { el.inert = true; });
+  const close = () => {
+    activeDrawerClose = null;
+    outside.forEach((el) => { el.inert = false; });
+    backdrop.remove();
+    drawer.remove();
+    document.removeEventListener("keydown", onKey);
+    window.removeEventListener("hashchange", close);
+    if (previous?.isConnected) previous.focus?.();
+  };
+  activeDrawerClose = close;
   const onKey = (ev) => { if (ev.key === "Escape") close(); };
   const backdrop = h("div", { class: "drawer-backdrop", onclick: close });
   const closeBtn = h("button", { class: "btn small", type: "button", onclick: close, text: "Close" });
@@ -139,8 +153,7 @@ export function openFindingDrawer(id, onChanged) {
     findingDetail(id, onChanged));
   document.body.append(backdrop, drawer);
   document.addEventListener("keydown", onKey);
+  window.addEventListener("hashchange", close, { once: true });
   closeBtn.focus();
   return close;
 }
-
-export { clear };

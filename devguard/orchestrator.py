@@ -15,6 +15,7 @@ from .adapters.trivy_config import TrivyConfigAdapter
 from .adapters.trivy_dependency import TrivyDependencyAdapter
 from .config import Settings
 from .engine.normalize import to_findings
+from .engine.risk import risk_score
 from .models import INCOMPLETE_RUN_STATUSES
 
 log = logging.getLogger("devguard.orchestrator")
@@ -76,14 +77,14 @@ class Orchestrator:
 
             runs = db.get_scanner_runs(conn, scan_id)
             status = derive_scan_status(r["status"] for r in runs)
+            score = risk_score(db.get_findings(conn, scan_id), db.triage_map(conn, scan["target_path"]))
             db.update_scan(conn, scan_id, status=status, finished_at=db.utcnow(),
-                           elapsed_ms=int((time.monotonic() - t0) * 1000))
-            db.recompute_risk(conn, scan_id)
+                           elapsed_ms=int((time.monotonic() - t0) * 1000), risk_score=score)
             log.info("Scan %d finished: %s", scan_id, status)
         except Exception as exc:  # last-resort guard so the queue worker survives
             log.error("Scan %d crashed: %s", scan_id, type(exc).__name__)
             try:
-                db.update_scan(conn, scan_id, status="failed", finished_at=db.utcnow())
+                db.update_scan(conn, scan_id, status="failed", finished_at=db.utcnow(), risk_score=0)
             except Exception:
                 pass
         finally:

@@ -50,8 +50,7 @@ def get_scan(scan_id: int, conn: sqlite3.Connection = Depends(get_conn)):
 
 @router.delete("/{scan_id}")
 def delete_scan(scan_id: int, conn: sqlite3.Connection = Depends(get_conn)):
-    scan = require_scan(conn, scan_id)
-    if scan["status"] == "running":
+    require_scan(conn, scan_id)
+    if not db.delete_scan(conn, scan_id):
         raise ApiError(409, "scan_running", "A running scan cannot be deleted.")
-    db.delete_scan(conn, scan_id)
     return {"deleted": scan_id}

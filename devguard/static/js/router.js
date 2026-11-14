@@ -45,6 +45,8 @@ async function render() {
     const result = await match.r.view(root, ctx);
     if (mine !== generation) { if (typeof result === "function") result(); return; }
     if (typeof result === "function") cleanup = result;
+    const h1 = root.querySelector("h1")?.textContent?.trim();
+    document.title = h1 ? `${h1} — DevGuard` : "DevGuard";
   } catch (err) {
     if (mine === generation) mount(root, errorBox(err, render));
   }

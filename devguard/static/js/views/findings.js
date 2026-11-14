@@ -18,6 +18,7 @@ export function findingsPanel(scan, query, onTriageChanged) {
   let seq = 0;
 
   async function refresh() {
+    if (seq > 0 && !body.isConnected) return;
     setQuery({ category: state.category, severity: state.severity.join(","), triage: state.triage, fp: state.fp, q: state.q, group: state.group });
     renderTabs();
     const mine = ++seq;

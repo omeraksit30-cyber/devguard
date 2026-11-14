@@ -36,7 +36,7 @@ export async function compare(root, ctx) {
   const stat = (label, value, cls) => h("div", { class: "card" }, h("div", { class: "stat-label", text: label }), h("div", { class: "stat " + (cls || ""), text: String(value) }));
   let active = ctx.query.get("tab") || "new";
   const tabBox = h("div", {});
-  const tabs = h("div", { class: "tabs", role: "tablist" });
+  const tabs = h("div", { class: "tabs", role: "tablist", "aria-label": "Comparison result categories" });
   const renderTabs = () => {
     mount(tabs, ["new", "resolved", "persistent"].map((k) => h("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(active === k),
       onclick: () => { active = k; renderTabs(); } }, k.charAt(0).toUpperCase() + k.slice(1), h("span", { class: "count", text: String(r.totals[k]) }))));

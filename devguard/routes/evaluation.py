@@ -30,9 +30,9 @@ def _require(conn: sqlite3.Connection, run_id: int) -> dict[str, Any]:
 
 @router.post("/run", status_code=202)
 def start(request: Request, conn: sqlite3.Connection = Depends(get_conn)):
-    if any(r["status"] == "running" for r in db.list_evaluation_runs(conn)):
-        raise ApiError(409, "evaluation_running", "An evaluation run is already in progress.")
     run_id = db.create_evaluation_run(conn)
+    if run_id is None:
+        raise ApiError(409, "evaluation_running", "An evaluation run is already in progress.")
     app = request.app
     app.state.orchestrator.submit_call(run_evaluation, app.state.settings, app.state.orchestrator, run_id,
                                        getattr(app.state, "fixtures_dir", None))

@@ -147,7 +147,9 @@ def init_db(path: Path) -> None:
                     "UPDATE scanner_runs SET status='failed', error_message=?, finished_at=?, "
                     "findings_count=NULL WHERE scan_id=? AND status IN ('pending', 'running')",
                     ("Interrupted by server restart", now, scan_id))
-                conn.execute("UPDATE scans SET status='failed', finished_at=? WHERE id=?", (now, scan_id))
+                conn.execute(
+                    "UPDATE scans SET status='failed', finished_at=?, risk_score=COALESCE(risk_score, 0) WHERE id=?",
+                    (now, scan_id))
             conn.execute(
                 "UPDATE evaluation_runs SET status='error' WHERE status='running'")
     finally:
@@ -198,9 +200,10 @@ def update_scan(conn: sqlite3.Connection, scan_id: int, **fields: Any) -> None:
     conn.execute(f"UPDATE scans SET {cols} WHERE id=?", (*fields.values(), scan_id))
 
 
-def delete_scan(conn: sqlite3.Connection, scan_id: int) -> None:
+def delete_scan(conn: sqlite3.Connection, scan_id: int) -> bool:
     with transaction(conn):
-        conn.execute("DELETE FROM scans WHERE id=?", (scan_id,))
+        cur = conn.execute("DELETE FROM scans WHERE id=? AND status != 'running'", (scan_id,))
+        return cur.rowcount > 0
 
 
 def latest_scan_id_for_target(conn: sqlite3.Connection, target_path: str) -> int | None:
@@ -288,9 +291,12 @@ def set_triage(conn: sqlite3.Connection, target_path: str, fingerprint: str,
 
 # ---------------------------------------------------------------- evaluation runs
 
-def create_evaluation_run(conn: sqlite3.Connection) -> int:
-    cur = conn.execute("INSERT INTO evaluation_runs (created_at, status) VALUES (?, 'running')", (utcnow(),))
-    return int(cur.lastrowid)
+def create_evaluation_run(conn: sqlite3.Connection) -> int | None:
+    with transaction(conn):
+        if conn.execute("SELECT 1 FROM evaluation_runs WHERE status='running' LIMIT 1").fetchone():
+            return None
+        cur = conn.execute("INSERT INTO evaluation_runs (created_at, status) VALUES (?, 'running')", (utcnow(),))
+        return int(cur.lastrowid)
 
 
 def update_evaluation_run(conn: sqlite3.Connection, run_id: int, **fields: Any) -> None:

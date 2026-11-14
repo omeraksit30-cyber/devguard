@@ -24,10 +24,12 @@ class ScannerAdapter(Protocol):
 
 
 def walk_files(target: Path) -> Iterator[str]:
-    """Yield file names under target, skipping node_modules/.git and not following symlinks."""
-    for _root, dirs, files in os.walk(target, followlinks=False):
-        dirs[:] = [d for d in dirs if d not in PRUNED_DIRS]
-        yield from files
+    """Yield regular file names under target, skipping node_modules/.git and symlinks."""
+    for root, dirs, files in os.walk(target, followlinks=False):
+        dirs[:] = [d for d in dirs if d not in PRUNED_DIRS and not Path(root, d).is_symlink()]
+        for f in files:
+            if not Path(root, f).is_symlink():
+                yield f
 
 
 def relative_path(raw: object, target: Path) -> str | None:

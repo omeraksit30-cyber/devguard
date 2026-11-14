@@ -7,8 +7,10 @@ def test_health_and_security_headers(client):
     r = client.get("/api/health")
     assert r.status_code == 200 and r.json() == {"status": "ok"}
     assert "default-src 'self'" in r.headers["content-security-policy"]
+    assert "object-src 'none'" in r.headers["content-security-policy"]
     assert r.headers["x-content-type-options"] == "nosniff"
     assert r.headers["referrer-policy"] == "no-referrer"
+    assert "camera=()" in r.headers["permissions-policy"]
 
 
 def test_index_served_with_csp(client):
@@ -17,9 +19,25 @@ def test_index_served_with_csp(client):
     assert "script-src 'self'" in r.headers["content-security-policy"]
 
 
+def test_docs_served_with_swagger_compatible_csp(client):
+    r = client.get("/docs")
+    assert r.status_code == 200 and "swagger-ui" in r.text
+    assert "cdn.jsdelivr.net" in r.headers["content-security-policy"]
+
+
 def test_foreign_origin_rejected(client):
     r = client.post("/api/health", json={}, headers={"Origin": "https://evil.example"})
     assert r.status_code == 403 and r.json()["error"] == "origin_not_allowed"
+
+
+def test_cross_site_fetch_metadata_rejected_on_api_get(client):
+    r = client.get("/api/scans", headers={"Sec-Fetch-Site": "cross-site"})
+    assert r.status_code == 403 and r.json()["error"] == "origin_not_allowed"
+
+
+def test_dns_rebinding_host_header_rejected(client):
+    r = client.get("/api/scans", headers={"Host": "evil.attacker.example:8000"})
+    assert r.status_code == 403 and r.json()["error"] == "host_not_allowed"
 
 
 def test_non_json_post_rejected(client):

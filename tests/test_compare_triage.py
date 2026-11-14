@@ -102,6 +102,13 @@ def test_triage_lowers_risk_and_persists(client, scan):
 
     client.put(f"/api/findings/{crit['id']}/triage", json={"status": "open"})
     assert client.get(f"/api/scans/{s2['id']}").json()["summary"]["risk"]["score"] == before
+    assert client.get(f"/api/scans/{s['id']}").json()["summary"]["risk"]["score"] == before
+
+    # Triaging a finding on an older scan (s) while a newer scan (s2) exists updates both scans' risk_score
+    r2 = client.put(f"/api/findings/{crit['id']}/triage", json={"status": "false_positive", "note": "older scan"})
+    assert r2.status_code == 200 and r2.json()["risk_score"] == before - 10
+    assert client.get(f"/api/scans/{s['id']}").json()["summary"]["risk"]["score"] == before - 10
+    assert client.get(f"/api/scans/{s2['id']}").json()["summary"]["risk"]["score"] == before - 10
 
 
 def test_triage_validation(client, scan):

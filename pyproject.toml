@@ -3,3 +3,4 @@ pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-m 'not integration'"
 markers = ["integration: requires real Trivy/Gitleaks binaries"]
+filterwarnings = ["ignore:Using.*httpx.*starlette.testclient"]

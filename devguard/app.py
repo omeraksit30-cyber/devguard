@@ -26,14 +26,21 @@ STATE_CHANGING = {"POST", "PUT", "PATCH", "DELETE"}
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
         "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; "
-        "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        "object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
     ),
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
     "X-Frame-Options": "DENY",
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Resource-Policy": "same-origin",
+    "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
 }
+DOCS_CSP = (
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "img-src 'self' data: https://fastapi.tiangolo.com; "
+    "object-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+)
 
 
 def error_response(status: int, error: str, message: str) -> JSONResponse:
@@ -53,10 +60,16 @@ def create_app(settings: Settings | None = None, orchestrator: Orchestrator | No
     app.state.settings = settings
     app.state.orchestrator = orchestrator or Orchestrator(settings)
     allowed_origins = {f"http://127.0.0.1:{settings.port}", f"http://localhost:{settings.port}"}
+    allowed_hosts = {"127.0.0.1", "localhost", f"127.0.0.1:{settings.port}", f"localhost:{settings.port}", "testserver"}
 
     @app.middleware("http")
     async def security_middleware(request: Request, call_next):
-        if request.method in STATE_CHANGING and request.url.path.startswith("/api/"):
+        host = request.headers.get("host", "").strip().lower()
+        if host and host not in allowed_hosts:
+            response = error_response(403, "host_not_allowed", "Requests must target the local loopback host.")
+        elif request.url.path.startswith("/api/") and request.headers.get("sec-fetch-site", "").lower() == "cross-site":
+            response = error_response(403, "origin_not_allowed", "Cross-site API requests are not allowed.")
+        elif request.method in STATE_CHANGING and request.url.path.startswith("/api/"):
             origin = request.headers.get("origin")
             if origin is not None and origin not in allowed_origins:
                 response = error_response(403, "origin_not_allowed", "Cross-origin requests are not allowed.")
@@ -66,10 +79,13 @@ def create_app(settings: Settings | None = None, orchestrator: Orchestrator | No
                 response = await call_next(request)
         else:
             response = await call_next(request)
+        if request.url.path in ("/docs", "/redoc"):
+            response.headers.setdefault("Content-Security-Policy", DOCS_CSP)
         for k, v in SECURITY_HEADERS.items():
             response.headers.setdefault(k, v)
         if request.url.path.startswith("/api/"):
             response.headers.setdefault("Cache-Control", "no-store")
+            response.headers.setdefault("Vary", "Origin, Sec-Fetch-Site")
         return response
 
     @app.exception_handler(ApiError)
