@@ -145,6 +145,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .drawer-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
 
 .chart { width: 100%; height: auto; display: block; }
+.chart.bar { height: 22px; }
 .chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
 .chart .axis { stroke: var(--border); stroke-width: 1; }
 .chart .line { fill: none; stroke: var(--accent); stroke-width: 2; }

@@ -7,7 +7,7 @@ export function severityBar(bySeverity) {
   const total = SEVERITIES.reduce((n, k) => n + (bySeverity[k] || 0), 0);
   const W = 600, H = 26;
   const summary = SEVERITIES.map((k) => `${cap(k)} ${bySeverity[k] || 0}`).join(", ");
-  const svg = s("svg", { class: "chart", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Severity distribution: ${summary}`,
+  const svg = s("svg", { class: "chart bar", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Severity distribution: ${summary}`,
     preserveAspectRatio: "none" });
   if (total === 0) {
     svg.append(s("rect", { x: 0, y: 0, width: W, height: H, rx: 6, class: "fill-empty" }));

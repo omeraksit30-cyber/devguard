@@ -180,3 +180,14 @@ def test_real_subprocess_timeout_seconds_one(tmp_path):
             assert s["summary"]["by_category"][k]["count"] is None
         assert s["summary"]["risk"]["incomplete"] is True
         assert s["summary"]["risk"]["level"] == "unknown"
+
+
+def test_concurrent_requests_do_not_break_sqlite_threading(client, scan):
+    """Browsers send requests in parallel; a request's connection may cross worker threads."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    sid = scan()["id"]
+    urls = [f"/api/scans/{sid}", f"/api/scans/{sid}/findings", "/api/scans", f"/api/scans/{sid}/export?format=json"] * 15
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        codes = list(pool.map(lambda u: client.get(u).status_code, urls))
+    assert set(codes) == {200}

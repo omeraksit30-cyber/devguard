@@ -12,7 +12,7 @@ from ..models import ApiError
 
 
 def get_conn(request: Request) -> Iterator[sqlite3.Connection]:
-    conn = db.connect(request.app.state.settings.database)
+    conn = db.connect(request.app.state.settings.database, check_same_thread=False)
     try:
         yield conn
     finally:

@@ -21,7 +21,7 @@ function build(node, attrs, children) {
 export const h = (tag, attrs, ...children) => build(document.createElement(tag), attrs, children);
 export const s = (tag, attrs, ...children) => build(document.createElementNS(SVG_NS, tag), attrs, children);
 export const clear = (node) => { node.replaceChildren(); return node; };
-export const mount = (node, ...children) => { node.replaceChildren(...children.flat().filter(Boolean)); return node; };
+export const mount = (node, ...children) => { node.replaceChildren(...children.flat(Infinity).filter(Boolean)); return node; };
 
 export const SEVERITIES = ["critical", "high", "medium", "low", "informational"];
 export const CATEGORIES = ["dependency", "secret", "config"];

@@ -103,10 +103,16 @@ def utcnow() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
-def connect(path: Path) -> sqlite3.Connection:
-    """Open a new connection. Each thread must use its own connection."""
+def connect(path: Path, check_same_thread: bool = True) -> sqlite3.Connection:
+    """Open a new connection. Each thread must use its own connection.
+
+    check_same_thread=False is only for request-scoped connections: FastAPI may create
+    the dependency in one worker thread and run the endpoint in another, but a single
+    request never uses its connection from two threads at once.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, timeout=30, isolation_level=None)  # autocommit; explicit transactions
+    conn = sqlite3.connect(path, timeout=30, isolation_level=None,  # autocommit; explicit transactions
+                           check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
