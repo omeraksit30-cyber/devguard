@@ -3,10 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>DevGuard</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script type="module" src="/static/js/main.js"></script>
 </head>
 <body>
-  <main id="app"><h1>DevGuard</h1><p>Loading…</p></main>
-  <footer>DevGuard reports scanner observations, not proof that an application is secure.</footer>
+  <a class="skip-link" href="#app">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="#/"><span class="brand-mark" aria-hidden="true"></span>DevGuard</a>
+    <nav aria-label="Main">
+      <a href="#/" data-nav="dashboard">Dashboard</a>
+      <a href="#/scans/new" data-nav="new">New scan</a>
+      <a href="#/history" data-nav="history">History</a>
+      <a href="#/compare" data-nav="compare">Compare</a>
+      <a href="#/evaluation" data-nav="evaluation">Evaluation</a>
+    </nav>
+  </header>
+  <main id="app" tabindex="-1"><p class="state">Loading…</p></main>
+  <noscript><p class="state">DevGuard needs JavaScript to display scan results.</p></noscript>
+  <footer class="disclaimer">DevGuard reports scanner observations, not proof that an application is secure.</footer>
 </body>
 </html>
