@@ -6,10 +6,9 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Query
 
 from .. import db
+from ..db import load_findings
 from ..engine.normalize import sort_findings
-from ..errors import ApiError
-from ..models import Category, ScannerName, Severity
-from ..views import load_findings
+from ..models import ApiError, Category, ScannerName, Severity
 from . import get_conn, require_scan
 
 router = APIRouter(prefix="/api")

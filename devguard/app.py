@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 
 from . import __version__, db
 from .config import Settings, get_settings
-from .errors import ApiError
+from .models import ApiError
 from .orchestrator import Orchestrator
 from .routes import compare, evaluation, export, findings, scans, system, triage
 

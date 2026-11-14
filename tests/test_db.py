@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from devguard import db
-from devguard.models import RawFinding, TriageUpdate
+from devguard.models import RawFinding, Scan, ScannerRun, TriageUpdate
 
 
 @pytest.fixture
@@ -90,3 +90,11 @@ def test_models_validate():
         TriageUpdate(status="open", note="x" * 1001)
     with pytest.raises(ValidationError):
         RawFinding(rule_or_vulnerability_id="x", title="t", affected_target="a", remediation="r", Secret="s")
+
+
+def test_scan_and_scanner_run_models_match_db_rows(conn):
+    sid = db.create_scan(conn, "/x", "lbl")
+    scan = Scan(**db.get_scan(conn, sid))
+    assert scan.id == sid and scan.status == "queued"
+    runs = [ScannerRun(**r) for r in db.get_scanner_runs(conn, sid)]
+    assert len(runs) == 3 and all(r.status == "pending" for r in runs)

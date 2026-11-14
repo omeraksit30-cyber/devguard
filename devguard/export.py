@@ -12,8 +12,8 @@ import sqlite3
 from typing import Any
 
 from . import DISCLAIMER, __version__, db
+from .db import load_findings, scan_detail
 from .models import CATEGORIES, INCOMPLETE_RUN_STATUSES, SEVERITY_ORDER
-from .views import load_findings, scan_detail
 
 CATEGORY_TITLES = {"dependency": "Dependencies", "secret": "Secrets", "config": "Configurations"}
 HEURISTIC_NOTE = "Heuristic indicator, not a CVSS score."

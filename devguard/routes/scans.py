@@ -7,10 +7,9 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
 from .. import db
-from ..errors import ApiError
-from ..models import INCOMPLETE_RUN_STATUSES, ScanCreate, ScanStatus
+from ..db import scan_detail
+from ..models import INCOMPLETE_RUN_STATUSES, ApiError, ScanCreate, ScanStatus
 from ..paths import PathNotAllowed, validate_target
-from ..views import scan_detail
 from . import get_conn, require_scan
 
 router = APIRouter(prefix="/api/scans")

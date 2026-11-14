@@ -6,8 +6,8 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
-from ..errors import ApiError
 from ..export import FORMATS, build_report
+from ..models import ApiError
 from . import get_conn, require_scan
 
 router = APIRouter(prefix="/api")

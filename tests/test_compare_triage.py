@@ -69,6 +69,8 @@ def test_compare_api(client, scan, tools):
     assert all(x["category"] != "secret" for x in r["resolved"])
     assert client.get(f"/api/compare?base={a['id']}&head={a['id']}").status_code == 400
     assert client.get(f"/api/compare?base={a['id']}&head=999").status_code == 404
+    assert client.get(f"/api/compare?base_scan_id={a['id']}&head_scan_id={b['id']}").status_code == 200
+    assert client.get("/api/compare").status_code == 422
 
 
 def test_compare_rejects_failed_scan(client, scan, tools):

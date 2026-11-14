@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 
 from .. import db
-from ..errors import ApiError
 from ..evaluation import evidence_markdown, run_evaluation
+from ..models import ApiError
 from . import get_conn
 
 router = APIRouter(prefix="/api/evaluation")

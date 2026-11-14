@@ -137,3 +137,46 @@ def test_system_endpoints(client, settings, project):
     assert {t["name"] for t in tools} == {"trivy", "gitleaks"}
     cfg = client.get("/api/system/config").json()
     assert cfg["allowed_roots"][0]["directories"] == [str(project)]
+
+
+def test_real_subprocess_timeout_seconds_one(tmp_path):
+    """End-to-end check with a real hanging child process and timeout_seconds = 1."""
+    import sys
+    from fastapi.testclient import TestClient
+    from devguard.app import create_app
+    from devguard.config import load_settings
+
+    slow = tmp_path / "slow-scanner"
+    slow.write_text(
+        f"#!{sys.executable}\n"
+        "import sys, time\n"
+        "if '--version' in sys.argv or 'version' in sys.argv:\n"
+        "    print('version 1.2.3')\n"
+        "    sys.exit(0)\n"
+        "time.sleep(10)\n"
+    )
+    slow.chmod(0o755)
+    roots = tmp_path / "roots"
+    proj = roots / "proj"
+    proj.mkdir(parents=True)
+    (proj / "package-lock.json").write_text("{}")
+    (proj / "Dockerfile").write_text("FROM scratch\n")
+    cfg = tmp_path / "devguard.toml"
+    cfg.write_text(
+        f'[server]\nhost="127.0.0.1"\nport=8000\n'
+        f'[storage]\ndatabase="{tmp_path / "timeout.db"}"\n'
+        f'[scan]\nallowed_roots=["{roots}"]\ntimeout_seconds=1\n'
+        f'[tools]\ntrivy="{slow}"\ngitleaks="{slow}"\n'
+    )
+    with TestClient(create_app(load_settings(cfg)), base_url="http://127.0.0.1:8000") as c:
+        s = run_scan(c, proj, label="timeout-check")
+        assert s["status"] == "failed"
+        assert {r["status"] for r in s["scanner_runs"]} == {"timeout"}
+        for r in s["scanner_runs"]:
+            assert r["findings_count"] is None
+            assert "Timed out after 1 seconds" in r["error_message"]
+        for k in ("dependency", "secret", "config"):
+            assert s["summary"]["by_category"][k]["status"] == "timeout"
+            assert s["summary"]["by_category"][k]["count"] is None
+        assert s["summary"]["risk"]["incomplete"] is True
+        assert s["summary"]["risk"]["level"] == "unknown"

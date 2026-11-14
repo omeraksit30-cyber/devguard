@@ -23,6 +23,14 @@ SCANNER_CATEGORY: dict[str, str] = {
 INCOMPLETE_RUN_STATUSES = {"failed", "timeout", "not_installed"}
 
 
+class ApiError(Exception):
+    """Standard API error rendered as {"error": code, "message": text}."""
+
+    def __init__(self, status: int, error: str, message: str):
+        super().__init__(message)
+        self.status, self.error, self.message = status, error, message
+
+
 class RawFinding(BaseModel):
     """Adapter output before fingerprinting and storage. Never carries secret values."""
 
@@ -67,3 +75,36 @@ class TriageUpdate(BaseModel):
 
     status: TriageStatus
     note: str | None = Field(default=None, max_length=1000)
+
+
+class ScannerRun(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int | None = None
+    scan_id: int
+    scanner: ScannerName
+    category: Category
+    status: RunStatus
+    tool_version: str | None = None
+    exit_code: int | None = None
+    error_message: str | None = None
+    skip_reason: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    elapsed_ms: int | None = None
+    findings_count: int | None = None
+
+
+class Scan(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int | None = None
+    target_path: str
+    label: str | None = None
+    status: ScanStatus
+    created_at: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    elapsed_ms: int | None = None
+    risk_score: int | None = None
+

@@ -12,10 +12,10 @@ from pydantic import ValidationError
 
 from . import DISCLAIMER, db
 from .config import PROJECT_ROOT, Settings
+from .db import comparison, load_findings, scan_detail
 from .export import FORMATS, _md, build_report
 from .models import CATEGORIES, Finding
 from .paths import validate_target
-from .views import comparison, load_findings, scan_detail
 
 log = logging.getLogger("devguard.evaluation")
 

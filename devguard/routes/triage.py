@@ -5,9 +5,8 @@ import sqlite3
 from fastapi import APIRouter, Depends
 
 from .. import db
-from ..errors import ApiError
-from ..models import TriageUpdate
-from ..views import recompute_risk
+from ..db import recompute_risk
+from ..models import ApiError, TriageUpdate
 from . import get_conn
 
 router = APIRouter(prefix="/api")

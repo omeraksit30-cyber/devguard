@@ -8,7 +8,7 @@ from typing import Any, Iterator
 from fastapi import Request
 
 from .. import db
-from ..errors import ApiError
+from ..models import ApiError
 
 
 def get_conn(request: Request) -> Iterator[sqlite3.Connection]:
