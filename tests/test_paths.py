@@ -1,5 +1,6 @@
 import pytest
 
+from conftest import symlink_or_skip
 from devguard.paths import PathNotAllowed, validate_target
 
 
@@ -37,7 +38,7 @@ def test_rejected_paths(root, make):
 
 def test_symlink_pointing_outside_is_rejected(root):
     link = root / "link"
-    link.symlink_to(root.parent / "outside", target_is_directory=True)
+    symlink_or_skip(link, root.parent / "outside", target_is_directory=True)
     with pytest.raises(PathNotAllowed):
         validate_target(str(link), [root])
 

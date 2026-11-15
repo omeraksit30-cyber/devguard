@@ -36,12 +36,28 @@ def find_binary(name: str) -> str | None:
     return shutil.which(name)
 
 
+IS_WINDOWS = os.name == "nt"
+
+
 def _kill_tree(proc: subprocess.Popen) -> None:
+    """Kill the scanner and every process it started."""
+    if IS_WINDOWS:
+        # Windows has no process-group kill; taskkill /T walks the child tree.
+        taskkill = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "taskkill.exe"
+        try:
+            subprocess.run([str(taskkill), "/PID", str(proc.pid), "/T", "/F"], shell=False, timeout=15,
+                           stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)  # the scanner runs in its own session
+        except (ProcessLookupError, PermissionError):
+            pass
     try:
-        os.killpg(proc.pid, signal.SIGKILL)  # the scanner runs in its own session
-    except (ProcessLookupError, PermissionError):
+        proc.kill()
+    except OSError:
         pass
-    proc.kill()
 
 
 def run_tool(argv: list[str], timeout: int, cwd: Path, keep_stderr: bool = True) -> ToolResult:
@@ -53,6 +69,9 @@ def run_tool(argv: list[str], timeout: int, cwd: Path, keep_stderr: bool = True)
     if not isinstance(argv, list) or not argv or not all(isinstance(a, str) for a in argv):
         raise ValueError("argv must be a non-empty list of strings")
     start = time.monotonic()
+    # Isolate the scanner from the server's signals: own session on POSIX, own process group on Windows.
+    isolation: dict[str, Any] = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if IS_WINDOWS
+                                 else {"start_new_session": True})
     proc = subprocess.Popen(
         argv,
         shell=False,
@@ -61,7 +80,7 @@ def run_tool(argv: list[str], timeout: int, cwd: Path, keep_stderr: bool = True)
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE if keep_stderr else subprocess.DEVNULL,
         env=os.environ.copy(),
-        start_new_session=True,
+        **isolation,
     )
     timed_out = False
     try:
@@ -92,7 +111,7 @@ def tool_version(argv: list[str]) -> str | None:
 
 @contextmanager
 def temp_report_dir() -> Iterator[Path]:
-    """Private (0700) temp directory that is always removed, even on error."""
+    """Private temp directory (0700 on POSIX, user-profile ACL on Windows), always removed, even on error."""
     d = Path(tempfile.mkdtemp(prefix="devguard-"))
     try:
         yield d

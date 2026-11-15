@@ -46,7 +46,8 @@ def test_temp_dir_removed_even_on_error():
     with pytest.raises(RuntimeError):
         with runner.temp_report_dir() as d:
             (d / "report.json").write_text("{}")
-            assert (d.stat().st_mode & 0o777) == 0o700
+            if sys.platform != "win32":      # POSIX permission bits do not exist on Windows
+                assert (d.stat().st_mode & 0o777) == 0o700
             raise RuntimeError
     assert not d.exists()
 

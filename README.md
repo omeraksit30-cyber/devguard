@@ -14,7 +14,7 @@ Course project for SEN4931 — Special Topics in Software Engineering I, Bahçe�
 
 ## Requirements
 
-- macOS (Apple Silicon or Intel)
+- macOS (Apple Silicon or Intel) or Windows 10/11
 - Python 3.11 or newer (macOS ships 3.9; install a newer one with `brew install python@3.12`)
 - Trivy 0.60+ and Gitleaks 8.19+
 
@@ -26,6 +26,19 @@ python3 -m venv .venv && source .venv/bin/activate   # use python3.12 if python3
 pip install -r requirements.txt
 python -m devguard        # http://127.0.0.1:8000
 ```
+
+On Windows (PowerShell):
+
+```powershell
+winget install AquaSecurity.Trivy Gitleaks.Gitleaks Python.Python.3.12
+# open a new terminal so the tools are on PATH
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m devguard        # http://127.0.0.1:8000
+```
+
+In `devguard.toml` on Windows, write paths with forward slashes (`C:/Users/me/projects`) or single-quoted (`'C:\Users\me\projects'`).
 
 On its first run Trivy downloads its vulnerability database. This needs internet access and makes the first scan noticeably slower. After that, the DevGuard UI itself makes no request to anything other than `127.0.0.1`.
 

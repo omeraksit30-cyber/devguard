@@ -46,7 +46,7 @@ export function fmtTime(iso) {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 export const fmtDuration = (ms) => (ms === null || ms === undefined ? "—" : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
-export const baseName = (p) => (p || "").split("/").filter(Boolean).pop() || p;
+export const baseName = (p) => (p || "").split(/[\\/]/).filter(Boolean).pop() || p;  // "/" or Windows "\\"
 
 export const loading = (text = "Loading…") => h("p", { class: "state", role: "status" }, h("span", { class: "spinner", "aria-hidden": "true" }), text);
 export const empty = (title, text, action) => h("div", { class: "state" }, h("strong", { text: title }), text, action ? h("p", {}, action) : null);

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import symlink_or_skip
 from devguard.adapters.gitleaks_secret import GitleaksSecretAdapter
 from devguard.adapters.trivy_config import TrivyConfigAdapter
 from devguard.adapters.trivy_dependency import TrivyDependencyAdapter
@@ -65,7 +66,7 @@ def test_dependency_precheck(tmp_path):
     assert ad.precheck(tmp_path) is not None       # node_modules is ignored
     outside = tmp_path.parent / "outside-package-lock.json"
     outside.write_text("{}")
-    (tmp_path / "package-lock.json").symlink_to(outside)
+    symlink_or_skip(tmp_path / "package-lock.json", outside)
     assert ad.precheck(tmp_path) is not None       # symlinked lockfile is ignored
     (tmp_path / "package-lock.json").unlink()
     (tmp_path / "sub").mkdir()
@@ -111,7 +112,7 @@ def test_config_precheck(tmp_path):
     assert ad.precheck(tmp_path) == "No Dockerfile or YAML manifests found"
     outside = tmp_path.parent / "outside-Dockerfile"
     outside.write_text("FROM scratch")
-    (tmp_path / "Dockerfile").symlink_to(outside)
+    symlink_or_skip(tmp_path / "Dockerfile", outside)
     assert ad.precheck(tmp_path) is not None       # symlinked Dockerfile is ignored
     (tmp_path / "Dockerfile").unlink()
     (tmp_path / "Dockerfile.prod").write_text("FROM x")

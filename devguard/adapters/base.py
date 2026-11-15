@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Iterator, Protocol
 
 from ..models import RawFinding
@@ -43,15 +43,15 @@ def relative_path(raw: object, target: Path) -> str | None:
     p = Path(raw)
     for base in (target, target.resolve()):
         try:
-            return PurePosixPath(p.relative_to(base)).as_posix()
+            return p.relative_to(base).as_posix()
         except ValueError:
             pass
     if p.is_absolute():
         try:
-            return PurePosixPath(p.resolve().relative_to(target.resolve())).as_posix()
+            return p.resolve().relative_to(target.resolve()).as_posix()
         except (ValueError, OSError):
             return p.name
-    return PurePosixPath(p).as_posix()
+    return p.as_posix()  # on Windows this also turns backslashes into forward slashes
 
 
 def text(value: object, limit: int) -> str | None:

@@ -12,8 +12,8 @@ def settings(tmp_path, monkeypatch):
     roots.mkdir()
     cfg.write_text(
         f'[server]\nhost="127.0.0.1"\nport=8000\n'
-        f'[storage]\ndatabase="{tmp_path / "test.db"}"\n'
-        f'[scan]\nallowed_roots=["{roots}"]\ntimeout_seconds=30\n'
+        f'[storage]\ndatabase="{(tmp_path / "test.db").as_posix()}"\n'
+        f'[scan]\nallowed_roots=["{roots.as_posix()}"]\ntimeout_seconds=30\n'
     )
     return load_settings(cfg)
 
@@ -121,3 +121,11 @@ def run_scan(client, target, label=None, expect=202):
 @pytest.fixture
 def scan(client, tools, project):
     return lambda **kw: run_scan(client, project, **kw)
+
+
+def symlink_or_skip(link, target, **kw):
+    """Create a symlink; skip the test where the OS account may not create one (Windows without Developer Mode)."""
+    try:
+        link.symlink_to(target, **kw)
+    except OSError:
+        pytest.skip("symlinks cannot be created on this system")

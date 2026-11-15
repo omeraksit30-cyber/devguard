@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Request
 
 from .. import runner
 
 router = APIRouter(prefix="/api")
+WINGET_ID = {"trivy": "AquaSecurity.Trivy", "gitleaks": "Gitleaks.Gitleaks"}
 
 
 @router.get("/health")
@@ -24,7 +27,7 @@ def tools(request: Request):
             "installed": path is not None,
             "version": runner.tool_version([path, *version_args]) if path else None,
             "path": path,
-            "install_hint": f"brew install {name}",
+            "install_hint": f"winget install {WINGET_ID[name]}" if os.name == "nt" else f"brew install {name}",
         })
     return out
 

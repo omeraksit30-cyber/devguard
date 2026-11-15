@@ -1,0 +1,2 @@
+# Keep text files LF on every platform so fixture line numbers and hashes match.
+* text=auto eol=lf

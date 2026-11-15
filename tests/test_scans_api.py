@@ -146,16 +146,21 @@ def test_real_subprocess_timeout_seconds_one(tmp_path):
     from devguard.app import create_app
     from devguard.config import load_settings
 
-    slow = tmp_path / "slow-scanner"
-    slow.write_text(
-        f"#!{sys.executable}\n"
+    script = tmp_path / "slow_scanner.py"
+    script.write_text(
         "import sys, time\n"
         "if '--version' in sys.argv or 'version' in sys.argv:\n"
         "    print('version 1.2.3')\n"
         "    sys.exit(0)\n"
         "time.sleep(10)\n"
     )
-    slow.chmod(0o755)
+    if sys.platform == "win32":      # no shebangs on Windows: wrap the script in a batch file
+        slow = tmp_path / "slow-scanner.cmd"
+        slow.write_text(f'@"{sys.executable}" "{script}" %*\r\n')
+    else:
+        slow = tmp_path / "slow-scanner"
+        slow.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{script}" "$@"\n')
+        slow.chmod(0o755)
     roots = tmp_path / "roots"
     proj = roots / "proj"
     proj.mkdir(parents=True)
@@ -164,9 +169,9 @@ def test_real_subprocess_timeout_seconds_one(tmp_path):
     cfg = tmp_path / "devguard.toml"
     cfg.write_text(
         f'[server]\nhost="127.0.0.1"\nport=8000\n'
-        f'[storage]\ndatabase="{tmp_path / "timeout.db"}"\n'
-        f'[scan]\nallowed_roots=["{roots}"]\ntimeout_seconds=1\n'
-        f'[tools]\ntrivy="{slow}"\ngitleaks="{slow}"\n'
+        f'[storage]\ndatabase="{(tmp_path / "timeout.db").as_posix()}"\n'
+        f'[scan]\nallowed_roots=["{roots.as_posix()}"]\ntimeout_seconds=1\n'
+        f'[tools]\ntrivy="{slow.as_posix()}"\ngitleaks="{slow.as_posix()}"\n'
     )
     with TestClient(create_app(load_settings(cfg)), base_url="http://127.0.0.1:8000") as c:
         s = run_scan(c, proj, label="timeout-check")
