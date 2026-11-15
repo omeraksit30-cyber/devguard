@@ -20,8 +20,8 @@ def set_triage(finding_id: int, body: TriageUpdate, conn: sqlite3.Connection = D
     scan = db.get_scan(conn, f["scan_id"])
     note = (body.note or "").strip() or None
     triage = db.set_triage(conn, scan["target_path"], f["fingerprint"], body.status, note)
-    # Triage is keyed by (target, fingerprint); refresh the finding's scan and the latest scan of that target.
-    recompute_risk(conn, scan["id"])
+    # Triage is keyed by (target, fingerprint). Per spec §8.2 only the latest scan of that target is
+    # re-scored; older scans keep the score they finished with (see DECISIONS D27).
     latest = db.latest_scan_id_for_target(conn, scan["target_path"])
     score = recompute_risk(conn, latest) if latest is not None else None
     return {"finding_id": finding_id, "triage": triage, "latest_scan_id": latest, "risk_score": score}

@@ -1,6 +1,6 @@
 # DevGuard HTTP API
 
-Base path `/api`. All responses are JSON unless stated. Interactive documentation is served at `/docs`.
+Base path `/api`. All responses are JSON unless stated. Interactive documentation is served at `/docs` from local files (no CDN).
 
 **Errors** always have the shape `{"error": "<code>", "message": "<readable text>"}`.
 
@@ -8,6 +8,7 @@ Base path `/api`. All responses are JSON unless stated. Interactive documentatio
 
 - The server binds to `127.0.0.1` only. CORS is disabled.
 - `POST`, `PUT`, `PATCH` and `DELETE` require `Content-Type: application/json` (`403 json_required`). If an `Origin` header is present it must be `http://127.0.0.1:<port>` or `http://localhost:<port>` (`403 origin_not_allowed`).
+- Every request must carry a `Host` header of `127.0.0.1` or `localhost`, with or without the configured port (`403 host_not_allowed`). `/api/*` requests sent with `Sec-Fetch-Site: cross-site` are refused (`403 origin_not_allowed`).
 - Every response carries `Content-Security-Policy`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
 - Validation failures return `422 validation_error` naming the fields only; submitted values are never echoed.
 

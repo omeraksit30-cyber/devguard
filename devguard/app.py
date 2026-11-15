@@ -35,11 +35,11 @@ SECURITY_HEADERS = {
     "Cross-Origin-Resource-Policy": "same-origin",
     "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
 }
+# /docs serves a locally vendored Swagger UI. It sets inline style attributes, so only this
+# page relaxes style-src; scripts stay 'self' and no external host is allowed.
 DOCS_CSP = (
-    "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-    "img-src 'self' data: https://fastapi.tiangolo.com; "
-    "object-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+    "object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
 
 
@@ -56,16 +56,17 @@ def create_app(settings: Settings | None = None, orchestrator: Orchestrator | No
         yield
         app.state.orchestrator.shutdown()
 
-    app = FastAPI(title="DevGuard", version=__version__, lifespan=lifespan)
+    app = FastAPI(title="DevGuard", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.settings = settings
     app.state.orchestrator = orchestrator or Orchestrator(settings)
     allowed_origins = {f"http://127.0.0.1:{settings.port}", f"http://localhost:{settings.port}"}
-    allowed_hosts = {"127.0.0.1", "localhost", f"127.0.0.1:{settings.port}", f"localhost:{settings.port}", "testserver"}
+    # The Host check defeats DNS rebinding: a hostile name resolving to 127.0.0.1 is refused.
+    allowed_hosts = {"127.0.0.1", "localhost", f"127.0.0.1:{settings.port}", f"localhost:{settings.port}"}
 
     @app.middleware("http")
     async def security_middleware(request: Request, call_next):
         host = request.headers.get("host", "").strip().lower()
-        if host and host not in allowed_hosts:
+        if host not in allowed_hosts:
             response = error_response(403, "host_not_allowed", "Requests must target the local loopback host.")
         elif request.url.path.startswith("/api/") and request.headers.get("sec-fetch-site", "").lower() == "cross-site":
             response = error_response(403, "origin_not_allowed", "Cross-site API requests are not allowed.")
@@ -79,7 +80,7 @@ def create_app(settings: Settings | None = None, orchestrator: Orchestrator | No
                 response = await call_next(request)
         else:
             response = await call_next(request)
-        if request.url.path in ("/docs", "/redoc"):
+        if request.url.path == "/docs":
             response.headers.setdefault("Content-Security-Policy", DOCS_CSP)
         for k, v in SECURITY_HEADERS.items():
             response.headers.setdefault(k, v)
@@ -116,5 +117,9 @@ def create_app(settings: Settings | None = None, orchestrator: Orchestrator | No
     @app.get("/", include_in_schema=False)
     def index():
         return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/docs", include_in_schema=False)
+    def api_docs():
+        return FileResponse(STATIC_DIR / "docs.html")
 
     return app

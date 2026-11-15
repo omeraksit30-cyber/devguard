@@ -19,10 +19,24 @@ def test_index_served_with_csp(client):
     assert "script-src 'self'" in r.headers["content-security-policy"]
 
 
-def test_docs_served_with_swagger_compatible_csp(client):
+def test_docs_use_only_local_assets(client):
     r = client.get("/docs")
+    csp = r.headers["content-security-policy"]
     assert r.status_code == 200 and "swagger-ui" in r.text
-    assert "cdn.jsdelivr.net" in r.headers["content-security-policy"]
+    assert "http://" not in r.text and "https://" not in r.text      # nothing loaded from a CDN
+    assert "https:" not in csp and "script-src 'self';" in csp
+    for path in ("/static/vendor/swagger-ui/swagger-ui-bundle.js", "/static/vendor/swagger-ui/swagger-ui.css",
+                 "/static/js/docs-init.js", "/openapi.json"):
+        assert client.get(path).status_code == 200
+    assert client.get("/redoc").status_code == 404
+
+
+def test_missing_or_unknown_host_rejected(settings):
+    from fastapi.testclient import TestClient
+    from devguard.app import create_app
+    with TestClient(create_app(settings)) as c:      # default Host is "testserver"
+        r = c.get("/api/health")
+    assert r.status_code == 403 and r.json()["error"] == "host_not_allowed"
 
 
 def test_foreign_origin_rejected(client):
