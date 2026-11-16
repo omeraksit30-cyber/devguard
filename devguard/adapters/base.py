@@ -51,6 +51,8 @@ def relative_path(raw: object, target: Path) -> str | None:
             return p.resolve().relative_to(target.resolve()).as_posix()
         except (ValueError, OSError):
             return p.name
+    if not p.is_absolute() and "\\" in raw:
+        p = Path(raw.replace("\\", "/"))
     if ".." in p.parts:
         return p.name  # a relative path that climbs out of the scan root keeps only its file name
     return p.as_posix()  # on Windows this also turns backslashes into forward slashes

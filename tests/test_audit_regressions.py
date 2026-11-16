@@ -72,11 +72,17 @@ def test_triage_rescored_scan_is_latest_finished_one(client, scan, settings, pro
 
 # ------------------------------------------------------------------ F-03
 
-@pytest.mark.skipif(sys.platform == "win32", reason="uses a POSIX session to detach the grandchild")
 def test_timeout_returns_even_if_detached_grandchild_holds_stderr(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, "POST_KILL_WAIT", 1)
-    child = "import os, time; os.setsid(); time.sleep(20)"
-    parent = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', {child!r}]); time.sleep(20)"
+    if sys.platform == "win32":
+        # An intermediate child that exits immediately breaks the parent-PID chain walked by
+        # taskkill /T while the grandchild keeps the inherited stderr handle open.
+        grand = "import time; time.sleep(20)"
+        mid = f"import subprocess, sys; subprocess.Popen([sys.executable, '-c', {grand!r}], close_fds=False)"
+        parent = f"import subprocess, sys, time; subprocess.run([sys.executable, '-c', {mid!r}], close_fds=False); time.sleep(20)"
+    else:
+        child = "import os, time; os.setsid(); time.sleep(20)"
+        parent = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', {child!r}]); time.sleep(20)"
     start = time.monotonic()
     r = runner.run_tool([sys.executable, "-c", parent], 1, tmp_path)
     assert r.timed_out and r.exit_code is None and time.monotonic() - start < 8
@@ -105,22 +111,28 @@ def test_invalid_config_values_raise_config_error(tmp_path, body):
 
 def test_relative_path_never_climbs_out_of_the_scan_root(tmp_path):
     assert relative_path("../../etc/passwd", tmp_path) == "passwd"
+    assert relative_path(r"..\..\etc\passwd", tmp_path) == "passwd"
     assert relative_path("../outside/secret.js", tmp_path) == "secret.js"
     assert relative_path("src/config.js", tmp_path) == "src/config.js"
+    assert relative_path(r"src\config.js", tmp_path) == "src/config.js"
     assert relative_path(str(tmp_path / "k8s" / "deployment.yaml"), tmp_path) == "k8s/deployment.yaml"
 
 
 # ------------------------------------------------------------------ F-06
 
-@pytest.mark.skipif(sys.platform == "win32" or (hasattr(os, "geteuid") and os.geteuid() == 0),
-                    reason="needs POSIX permissions and a non-root user")
-def test_unreadable_allowed_root_does_not_break_config_endpoint(client, settings):
+def test_unreadable_allowed_root_does_not_break_config_endpoint(client, settings, monkeypatch):
     root = settings.allowed_roots[0]
-    root.chmod(0o000)
-    try:
+    if sys.platform == "win32" or (hasattr(os, "geteuid") and os.geteuid() == 0):
+        def deny(self):
+            raise PermissionError(13, "Permission denied")
+        monkeypatch.setattr(Path, "iterdir", deny)
         r = client.get("/api/system/config")
-    finally:
-        root.chmod(0o755)
+    else:
+        root.chmod(0o000)
+        try:
+            r = client.get("/api/system/config")
+        finally:
+            root.chmod(0o755)
     assert r.status_code == 200 and r.json()["allowed_roots"][0]["directories"] == []
 
 
