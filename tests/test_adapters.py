@@ -76,7 +76,7 @@ def test_dependency_precheck(tmp_path):
 
 def test_dependency_argv_disables_other_scanners():
     argv = TrivyDependencyAdapter("trivy").build_argv(Path("/t"), Path("/r/report.json"))
-    assert argv[:4] == ["trivy", "fs", "--scanners", "vuln"] and argv[-1] == "/t"
+    assert argv[:4] == ["trivy", "fs", "--scanners", "vuln"] and argv[-1] == str(Path("/t"))
 
 
 # ---------------------------------------------------------------- trivy config
@@ -148,7 +148,7 @@ def test_gitleaks_unredacted_report_never_leaks(caplog):
 
 def test_gitleaks_argv_always_redacts():
     argv = GitleaksSecretAdapter("gitleaks").build_argv(Path("/t"), Path("/r/report.json"))
-    assert "--redact" in argv and argv[:3] == ["gitleaks", "dir", "/t"]
+    assert "--redact" in argv and argv[:3] == ["gitleaks", "dir", str(Path("/t"))]
     assert argv[argv.index("--exit-code") + 1] == "0"
     assert GitleaksSecretAdapter.keep_stderr is False
 
