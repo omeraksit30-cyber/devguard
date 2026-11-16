@@ -207,8 +207,9 @@ def delete_scan(conn: sqlite3.Connection, scan_id: int) -> bool:
 
 
 def latest_scan_id_for_target(conn: sqlite3.Connection, target_path: str) -> int | None:
-    r = conn.execute("SELECT id FROM scans WHERE target_path=? ORDER BY id DESC LIMIT 1",
-                     (target_path,)).fetchone()
+    """Latest finished scan of a target; queued and running scans have no score to refresh yet."""
+    r = conn.execute("SELECT id FROM scans WHERE target_path=? AND status NOT IN ('queued', 'running') "
+                     "ORDER BY id DESC LIMIT 1", (target_path,)).fetchone()
     return r["id"] if r else None
 
 
@@ -217,6 +218,16 @@ def latest_scan_id_for_target(conn: sqlite3.Connection, target_path: str) -> int
 def get_scanner_runs(conn: sqlite3.Connection, scan_id: int) -> list[dict[str, Any]]:
     return [dict(r) for r in conn.execute(
         "SELECT * FROM scanner_runs WHERE scan_id=? ORDER BY id", (scan_id,))]
+
+
+def scanner_runs_by_scan(conn: sqlite3.Connection, scan_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    """Scanner runs for many scans in one query (the scan list would otherwise issue one per row)."""
+    out: dict[int, list[dict[str, Any]]] = {i: [] for i in scan_ids}
+    if scan_ids:
+        marks = ",".join("?" * len(scan_ids))
+        for r in conn.execute(f"SELECT * FROM scanner_runs WHERE scan_id IN ({marks}) ORDER BY id", scan_ids):
+            out[r["scan_id"]].append(dict(r))
+    return out
 
 
 def update_scanner_run(conn: sqlite3.Connection, scan_id: int, scanner: str, **fields: Any) -> None:

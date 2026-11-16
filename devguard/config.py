@@ -43,40 +43,55 @@ def load_settings(path: Path | None = None) -> Settings:
     except (OSError, tomllib.TOMLDecodeError) as exc:
         raise ConfigError(f"Cannot read configuration file {path}: {exc}") from exc
 
-    server = data.get("server", {})
-    storage = data.get("storage", {})
-    scan = data.get("scan", {})
-    tools = data.get("tools", {})
+    def section(name: str) -> dict:
+        value = data.get(name, {})
+        if not isinstance(value, dict):
+            raise ConfigError(f"[{name}] must be a table")
+        return value
 
-    host = str(server.get("host", "127.0.0.1"))
+    def integer(table: dict, table_name: str, key: str, default: int) -> int:
+        value = table.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ConfigError(f"{table_name}.{key} must be an integer")
+        return value
+
+    def string(table: dict, table_name: str, key: str, default: str) -> str:
+        value = table.get(key, default)
+        if not isinstance(value, str) or not value.strip():
+            raise ConfigError(f"{table_name}.{key} must be a non-empty string")
+        return value
+
+    server, storage, scan, tools = section("server"), section("storage"), section("scan"), section("tools")
+
+    host = string(server, "server", "host", "127.0.0.1")
     if host not in ALLOWED_HOSTS:
         raise ConfigError(
             f"server.host must be one of {sorted(ALLOWED_HOSTS)}; got {host!r}. "
             "DevGuard only serves on the local loopback interface."
         )
 
-    port = int(server.get("port", 8000))
+    port = integer(server, "server", "port", 8000)
     if not 1 <= port <= 65535:
         raise ConfigError(f"server.port out of range: {port}")
 
     roots = scan.get("allowed_roots", ["./fixtures"])
-    if not isinstance(roots, list) or not roots:
-        raise ConfigError("scan.allowed_roots must be a non-empty list")
+    if not isinstance(roots, list) or not roots or not all(isinstance(r, str) and r.strip() for r in roots):
+        raise ConfigError("scan.allowed_roots must be a non-empty list of directory paths")
 
-    timeout = int(scan.get("timeout_seconds", 300))
-    max_bytes = int(scan.get("max_report_bytes", 50 * 1024 * 1024))
+    timeout = integer(scan, "scan", "timeout_seconds", 300)
+    max_bytes = integer(scan, "scan", "max_report_bytes", 50 * 1024 * 1024)
     if timeout < 1 or max_bytes < 1:
         raise ConfigError("scan.timeout_seconds and scan.max_report_bytes must be positive")
 
     return Settings(
         host=host,
         port=port,
-        database=_resolve(storage.get("database", "data/devguard.db")),
-        allowed_roots=tuple(_resolve(str(r)) for r in roots),
+        database=_resolve(string(storage, "storage", "database", "data/devguard.db")),
+        allowed_roots=tuple(_resolve(r) for r in roots),
         timeout_seconds=timeout,
         max_report_bytes=max_bytes,
-        trivy=str(tools.get("trivy", "trivy")),
-        gitleaks=str(tools.get("gitleaks", "gitleaks")),
+        trivy=string(tools, "tools", "trivy", "trivy"),
+        gitleaks=string(tools, "tools", "gitleaks", "gitleaks"),
     )
 
 

@@ -34,7 +34,7 @@ export async function scanDetail(root, ctx) {
     const others = h("select", { "aria-label": "Compare with another scan of this target", onchange: (ev) => {
       if (ev.target.value) navigate(`/compare${qs({ base: ev.target.value, head: id })}`);
     } }, h("option", { value: "", text: "Compare with…" }));
-    api.get("/scans" + qs({ target_path: scan.target_path, limit: 50 })).then((list) => {
+    if (!busy(scan)) api.get("/scans" + qs({ target_path: scan.target_path, limit: 50 })).then((list) => {
       list.items.filter((s) => s.id !== scan.id && ["completed", "partial"].includes(s.status))
         .forEach((s) => others.append(h("option", { value: s.id, text: `#${s.id} · ${fmtTime(s.started_at)}${s.label ? " · " + s.label : ""}` })));
     }).catch(() => {});

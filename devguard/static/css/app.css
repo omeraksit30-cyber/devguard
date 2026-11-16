@@ -63,7 +63,8 @@ main { max-width: 1240px; margin: 0 auto; padding: 24px; outline: none; }
 .muted { color: var(--muted); }
 .small { font-size: .85rem; }
 .mono { font-family: var(--mono); font-size: .88em; overflow-wrap: anywhere; }
-.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.page-head > * { min-width: 0; max-width: 100%; }
 .grid { display: grid; gap: 16px; }
 .grid-3 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 .grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
@@ -84,6 +85,7 @@ main { max-width: 1240px; margin: 0 auto; padding: 24px; outline: none; }
 .btn.small { padding: 4px 10px; font-size: .85rem; }
 .linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-align: left; text-decoration: underline; }
 
+select { min-width: 0; max-width: 100%; }
 input[type="text"], input[type="search"], select, textarea { font: inherit; color: var(--text); background: var(--surface);
   border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; max-width: 100%; }
 textarea { width: 100%; min-height: 80px; resize: vertical; }

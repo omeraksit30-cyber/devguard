@@ -34,8 +34,9 @@ def list_scans(conn: sqlite3.Connection = Depends(get_conn),
                status: ScanStatus | None = None,
                limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
     scans = db.list_scans(conn, target_path, status, limit, offset)
+    runs_by_scan = db.scanner_runs_by_scan(conn, [s["id"] for s in scans])
     for s in scans:
-        runs = db.get_scanner_runs(conn, s["id"])
+        runs = runs_by_scan[s["id"]]
         s["incomplete"] = s["status"] in ("partial", "failed")
         s["scanners_not_run"] = sum(1 for r in runs if r["status"] in INCOMPLETE_RUN_STATUSES)
         # Total is meaningful only when the scan is complete; otherwise it is a lower bound.

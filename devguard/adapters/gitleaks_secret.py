@@ -17,6 +17,7 @@ from .base import integer, relative_path, text
 
 log = logging.getLogger("devguard.adapters.gitleaks")
 
+DEFAULT_CONFIG = Path(__file__).with_name("gitleaks.toml")
 ALLOWED_KEYS = ("RuleID", "Description", "File", "StartLine", "EndLine")
 REMEDIATION = (
     "Remove the value from the file, rotate the credential at its provider, and load it from an "
@@ -39,8 +40,12 @@ class GitleaksSecretAdapter:
         return None
 
     def build_argv(self, target: Path, report_path: Path) -> list[str]:
+        # The scanned project must not be able to switch detection off, so its own
+        # .gitleaks.toml, .gitleaksignore and "gitleaks:allow" comments are all ignored.
         return [self.binary, "dir", str(target), "--report-format", "json",
-                "--report-path", str(report_path), "--redact", "--no-banner", "--exit-code", "0"]
+                "--report-path", str(report_path), "--redact", "--no-banner", "--exit-code", "0",
+                "--config", str(DEFAULT_CONFIG), "--gitleaks-ignore-path", str(report_path.parent),
+                "--ignore-gitleaks-allow"]
 
     def parse(self, report: dict | list, target: Path) -> list[RawFinding]:
         if not isinstance(report, list):

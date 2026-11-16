@@ -1,0 +1,6 @@
+# Passed to Gitleaks with --config so a scanned project cannot swap in its own
+# .gitleaks.toml (for example one that allowlists every path). Uses the built-in rules only.
+title = "DevGuard: Gitleaks default rules"
+
+[extend]
+useDefault = true

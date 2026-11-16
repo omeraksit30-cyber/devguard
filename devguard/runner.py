@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 STDERR_TAIL = 2000
+POST_KILL_WAIT = 3  # seconds to collect output after a timed-out scanner is killed
 _VERSION_RE = re.compile(r"\d+\.\d+\.\d+[\w.\-+]*")
 
 
@@ -88,7 +89,13 @@ def run_tool(argv: list[str], timeout: int, cwd: Path, keep_stderr: bool = True)
     except subprocess.TimeoutExpired:
         timed_out = True
         _kill_tree(proc)
-        _, err = proc.communicate()
+        try:
+            _, err = proc.communicate(timeout=POST_KILL_WAIT)
+        except subprocess.TimeoutExpired:
+            # A detached grandchild still holds the stderr pipe; do not let it stall the scan queue.
+            if proc.stderr:
+                proc.stderr.close()
+            err = b""
     except BaseException:
         _kill_tree(proc)
         proc.wait()

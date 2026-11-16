@@ -37,9 +37,13 @@ def config(request: Request):
     s = request.app.state.settings
     roots = []
     for root in s.allowed_roots:
-        children = []
-        if root.is_dir():
-            children = sorted(str(p) for p in root.iterdir()
-                              if p.is_dir() and not p.is_symlink() and not p.name.startswith("."))
-        roots.append({"path": str(root), "exists": root.is_dir(), "directories": children})
+        children, exists = [], False
+        try:
+            exists = root.is_dir()
+            if exists:
+                children = sorted(str(p) for p in root.iterdir()
+                                  if p.is_dir() and not p.is_symlink() and not p.name.startswith("."))
+        except OSError:
+            children = []  # unreadable root: list nothing rather than fail the whole page
+        roots.append({"path": str(root), "exists": exists, "directories": children})
     return {"allowed_roots": roots, "timeout_seconds": s.timeout_seconds}
