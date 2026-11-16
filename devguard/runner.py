@@ -93,7 +93,9 @@ def run_tool(argv: list[str], timeout: int, cwd: Path, keep_stderr: bool = True)
             _, err = proc.communicate(timeout=POST_KILL_WAIT)
         except subprocess.TimeoutExpired:
             # A detached grandchild still holds the stderr pipe; do not let it stall the scan queue.
-            if proc.stderr:
+            # On Windows the pipe is being read by subprocess's daemon thread and closing it would
+            # block until that read ends, so it is left to finish on its own there.
+            if proc.stderr and not IS_WINDOWS:
                 proc.stderr.close()
             err = b""
     except BaseException:
