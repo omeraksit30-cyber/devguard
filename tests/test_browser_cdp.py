@@ -402,3 +402,91 @@ def test_browser_real_mouse_downloads_and_docs():
             chrome.wait()
             server.should_exit = True
             thread.join(timeout=5)
+
+
+NARROW_ROUTES = ("/", "/scans/new", "/history", "/compare", "/evaluation", "/scans/1")
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("width", [375, 320])
+def test_browser_no_horizontal_overflow_on_narrow_screens(width):
+    """Audit finding F-08: no page may scroll sideways on a phone-sized viewport.
+
+    Needs only Chrome. The database is seeded directly, with a long target path, because the
+    original overflow came from the target <select> growing to the width of that path.
+    """
+    chrome_bin = find_chrome()
+    if not chrome_bin:
+        pytest.skip("Chrome is required")
+    from devguard import db
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        port, cdp_port = free_port(), free_port()
+        settings = dataclasses.replace(load_settings(ROOT / "devguard.toml"), port=port, database=tmp_path / "narrow.db")
+        app = create_app(settings)
+        server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
+        thread = threading.Thread(target=server.run, daemon=True)
+        thread.start()
+        for _ in range(100):
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=1):
+                    break
+            except Exception:
+                time.sleep(0.05)
+
+        target = "/home/someone/projects/a-deliberately-long-directory-name/services/payments-api/vulnerable-app"
+        conn = db.connect(settings.database)
+        try:
+            for label in ("first scan with a fairly long label", None):
+                sid = db.create_scan(conn, target, label)
+                db.insert_findings(conn, [dict(
+                    scan_id=sid, scanner="trivy-config", category="config", rule_or_vulnerability_id="DS-0002",
+                    title="Image user should not be 'root' — a long title that has to wrap on a phone",
+                    severity="high", original_severity="HIGH", affected_target="deploy/docker/Dockerfile.production",
+                    file_path="deploy/docker/Dockerfile.production", description="d", remediation="r",
+                    fingerprint="a" * 64, first_seen=db.utcnow(), occurrences=1)])
+                for scanner in ("trivy-dependency", "gitleaks", "trivy-config"):
+                    db.update_scanner_run(conn, sid, scanner, status="success",
+                                          findings_count=1 if scanner == "trivy-config" else 0)
+                db.update_scan(conn, sid, status="completed", started_at=db.utcnow(), finished_at=db.utcnow(),
+                               elapsed_ms=1200, risk_score=5)
+        finally:
+            conn.close()
+
+        chrome = subprocess.Popen(
+            [chrome_bin, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+             f"--user-data-dir={tmp_path / 'chrome-profile'}", f"--remote-debugging-port={cdp_port}", "about:blank"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            targets = None
+            for _ in range(100):
+                try:
+                    with urllib.request.urlopen(f"http://127.0.0.1:{cdp_port}/json/list", timeout=1) as resp:
+                        targets = [t for t in json.loads(resp.read()) if t.get("type") == "page"]
+                        if targets:
+                            break
+                except Exception:
+                    time.sleep(0.05)
+            assert targets, "No Chrome page target found"
+            cdp = CDPClient(targets[0]["webSocketDebuggerUrl"])
+            cdp.call("Page.enable")
+            cdp.call("Runtime.enable")
+            cdp.call("Emulation.setDeviceMetricsOverride", width=width, height=800, deviceScaleFactor=2, mobile=True)
+
+            overflowing = {}
+            for route in NARROW_ROUTES:
+                cdp.call("Page.navigate", url="about:blank")
+                cdp.call("Page.navigate", url=f"http://127.0.0.1:{port}/#{route}")
+                cdp.wait_for("!!document.querySelector('#app h1')")
+                time.sleep(0.4)      # let the lists and charts that load after the heading render
+                assert cdp.eval("document.documentElement.clientWidth") == width
+                scroll_width = cdp.eval("document.documentElement.scrollWidth")
+                if scroll_width > width:
+                    overflowing[route] = scroll_width
+            assert not overflowing, f"pages wider than the {width}px viewport: {overflowing}"
+        finally:
+            chrome.kill()
+            chrome.wait()
+            server.should_exit = True
+            thread.join(timeout=5)

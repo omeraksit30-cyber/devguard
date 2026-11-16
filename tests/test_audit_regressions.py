@@ -70,6 +70,34 @@ def test_triage_rescored_scan_is_latest_finished_one(client, scan, settings, pro
     assert client.get(f"/api/scans/{s['id']}").json()["summary"]["risk"]["score"] == before - 10
 
 
+@pytest.mark.parametrize("newer_status,rescored", [
+    ("queued", "older"), ("running", "older"),              # unfinished scans have no score to refresh
+    ("completed", "newer"), ("partial", "newer"), ("failed", "newer"),
+])
+def test_triage_rescoring_by_status_of_the_newer_scan(client, scan, settings, project, newer_status, rescored):
+    s = scan()
+    before = s["summary"]["risk"]["score"]
+    conn = db.connect(settings.database)
+    try:
+        newer = db.create_scan(conn, str(project), "newer")
+        db.update_scan(conn, newer, status=newer_status, risk_score=None if newer_status in ("queued", "running") else 0)
+    finally:
+        conn.close()
+    crit = client.get(f"/api/scans/{s['id']}/findings?severity=critical").json()["items"][0]
+    r = client.put(f"/api/findings/{crit['id']}/triage", json={"status": "false_positive"}).json()
+    older_score = client.get(f"/api/scans/{s['id']}").json()["summary"]["risk"]["score"]
+    newer_scan = client.get(f"/api/scans/{newer}").json()
+    if rescored == "older":
+        assert r["latest_scan_id"] == s["id"] and r["risk_score"] == older_score == before - 10
+        assert newer_scan["status"] == newer_status and newer_scan["summary"]["risk"]["score"] is None
+    else:
+        # The newer finished scan is re-scored (it holds no findings here, so 0); the older scan keeps
+        # the score it finished with — historical snapshots are never rewritten (DECISIONS D27).
+        assert r["latest_scan_id"] == newer and r["risk_score"] == 0
+        assert older_score == before
+        assert newer_scan["summary"]["risk"]["level"] == ("none" if newer_status == "completed" else "unknown")
+
+
 # ------------------------------------------------------------------ F-03
 
 def test_timeout_returns_even_if_detached_grandchild_holds_stderr(tmp_path, monkeypatch):
