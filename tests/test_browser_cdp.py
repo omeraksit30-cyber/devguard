@@ -490,3 +490,115 @@ def test_browser_no_horizontal_overflow_on_narrow_screens(width):
             chrome.wait()
             server.should_exit = True
             thread.join(timeout=5)
+
+
+@pytest.mark.integration
+def test_browser_incomplete_scans_never_read_as_clean_or_improved():
+    """A failed or partial scan must not show a risk of 0, plot as a drop to zero, or count as an improvement."""
+    chrome_bin = find_chrome()
+    if not chrome_bin:
+        pytest.skip("Chrome is required")
+    from devguard import db
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        port, cdp_port = free_port(), free_port()
+        settings = dataclasses.replace(load_settings(ROOT / "devguard.toml"), port=port, database=tmp_path / "risk.db")
+        server = uvicorn.Server(uvicorn.Config(create_app(settings), host="127.0.0.1", port=port, log_level="warning"))
+        thread = threading.Thread(target=server.run, daemon=True)
+        thread.start()
+        for _ in range(100):
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=1):
+                    break
+            except Exception:
+                time.sleep(0.05)
+
+        # Scan 1 and 2 are complete (20, then 5); scan 3 is partial (5); scan 4, the latest, failed (0).
+        seeded = [("completed", 20, ()), ("completed", 5, ()), ("partial", 5, ("gitleaks",)),
+                  ("failed", 0, ("trivy-dependency", "gitleaks", "trivy-config"))]
+        conn = db.connect(settings.database)
+        try:
+            for status, score, missing in seeded:
+                sid = db.create_scan(conn, "/srv/app", None)
+                for scanner in ("trivy-dependency", "gitleaks", "trivy-config"):
+                    if scanner in missing:
+                        db.update_scanner_run(conn, sid, scanner, status="not_installed", error_message="not found on PATH")
+                    else:
+                        db.update_scanner_run(conn, sid, scanner, status="success", findings_count=0)
+                db.update_scan(conn, sid, status=status, started_at=db.utcnow(), finished_at=db.utcnow(),
+                               elapsed_ms=100, risk_score=score)
+        finally:
+            conn.close()
+
+        chrome = subprocess.Popen(
+            [chrome_bin, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+             f"--user-data-dir={tmp_path / 'chrome-profile'}", f"--remote-debugging-port={cdp_port}",
+             "--window-size=1280,900", "about:blank"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            targets = None
+            for _ in range(100):
+                try:
+                    with urllib.request.urlopen(f"http://127.0.0.1:{cdp_port}/json/list", timeout=1) as resp:
+                        targets = [t for t in json.loads(resp.read()) if t.get("type") == "page"]
+                        if targets:
+                            break
+                except Exception:
+                    time.sleep(0.05)
+            assert targets, "No Chrome page target found"
+            cdp = CDPClient(targets[0]["webSocketDebuggerUrl"])
+            cdp.call("Page.enable")
+            cdp.call("Runtime.enable")
+            base = f"http://127.0.0.1:{port}"
+            risk_card = ("[...document.querySelectorAll('.card')].find(c => "
+                         "c.querySelector('.stat-label')?.textContent === 'Risk score')")
+
+            def open_route(route):
+                cdp.call("Page.navigate", url="about:blank")
+                cdp.call("Page.navigate", url=f"{base}/#{route}")
+                cdp.wait_for(f"!!({risk_card})")
+
+            # Dashboard: the latest scan failed, so there is no score — not "0".
+            open_route("/")
+            cdp.wait_for("document.querySelectorAll('svg.chart circle').length > 0")
+            assert cdp.eval(f"({risk_card}).querySelector('.stat').textContent") == "—"
+            card_text = cdp.eval(f"({risk_card}).textContent")
+            assert "Level: Unknown" in card_text and "Incomplete — 3 scanner(s) did not run" in card_text
+            assert "No score available" in card_text
+            rows = cdp.eval("[...document.querySelectorAll('tbody tr')].filter(r => r.textContent.includes('#'))"
+                            ".map(r => [r.cells[0].textContent, r.cells[r.cells.length - 1].textContent])")
+            assert ["#4", "—"] in rows and ["#3", "5"] in rows and ["#1", "20"] in rows
+            # Trend: the failed scan is not plotted; the partial one is hollow.
+            assert cdp.eval("document.querySelectorAll('svg.chart circle').length") == 3
+            assert cdp.eval("document.querySelectorAll('svg.chart circle.hollow').length") == 1
+            assert cdp.eval("document.getElementById('app').textContent.includes("
+                            "'1 incomplete scan(s) without a usable score are not plotted.')")
+
+            # Compare without parameters: defaults to the two latest *completed* scans (1 and 2), not the partial one.
+            open_route("/compare")
+            assert cdp.eval("[document.getElementById('base').value, document.getElementById('head').value]") == ["1", "2"]
+            assert cdp.eval(f"({risk_card}).querySelector('.delta-na')") is None
+
+            # Compare, both complete: the ordinary delta is still shown.
+            open_route("/compare?base=1&head=2")
+            assert cdp.eval(f"({risk_card}).querySelector('.delta-down')?.textContent") == "-15 (lower)"
+            assert cdp.eval(f"({risk_card}).querySelector('.delta-na')") is None
+
+            # Compare, head partial: a lower score is not an improvement.
+            open_route("/compare?base=1&head=3")
+            assert cdp.eval(f"({risk_card}).querySelector('.delta-down')") is None
+            note = cdp.eval(f"({risk_card}).querySelector('.delta-na').textContent")
+            assert note == "Not directly comparable — scan #3 is incomplete (partial)."
+            assert cdp.eval(f"({risk_card}).querySelector('.stat').textContent") == "20 → 5"
+
+            # Compare, head failed: the API refuses the comparison, so no risk figures are shown at all.
+            cdp.call("Page.navigate", url="about:blank")
+            cdp.call("Page.navigate", url=f"{base}/#/compare?base=1&head=4")
+            cdp.wait_for("document.getElementById('app').textContent.includes('only completed or partial scans can be compared')")
+            assert cdp.eval(f"!({risk_card})")
+        finally:
+            chrome.kill()
+            chrome.wait()
+            server.should_exit = True
+            thread.join(timeout=5)

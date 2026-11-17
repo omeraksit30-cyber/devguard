@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import {
   CATEGORIES, CATEGORY_LABEL, SCANNER_LABEL, errorBox, fmtTime, h, incompleteBadge, loading, mount,
-  riskLevelLabel, safeLink, severityBadge, statusBadge, statusLabel, table,
+  riskLevelLabel, riskText, safeLink, severityBadge, statusBadge, statusLabel, table,
 } from "../dom.js";
 
 export function riskCard(summary) {
@@ -9,9 +9,12 @@ export function riskCard(summary) {
   return h("div", { class: "card" },
     h("div", { class: "stat-label", text: "Risk score" }),
     h("div", { class: "row" },
-      h("span", { class: "stat", text: r.score ?? "—" }),
+      h("span", { class: "stat", text: riskText(r.score, r.incomplete) }),
       h("span", { class: "badge st-neutral", text: "Level: " + riskLevelLabel(r.level) })),
     incompleteBadge(r) ? h("p", {}, incompleteBadge(r)) : null,
+    r.incomplete ? h("p", { class: "small muted", text: r.score > 0
+      ? "Lower bound: scanners that did not run are not counted."
+      : "No score available: the scanners that did not run could not report findings." }) : null,
     h("p", { class: "small muted", text: "Heuristic indicator, not a CVSS score." }));
 }
 

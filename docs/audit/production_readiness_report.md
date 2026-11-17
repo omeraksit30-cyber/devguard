@@ -16,13 +16,14 @@ Date: 2026-11-17.
 | Real scanners end to end | Pass | evaluation test with Trivy 0.76.2 and Gitleaks 8.30.1, four acceptance criteria |
 | Browser behaviour | Pass | 65 journey checks plus the repository's CDP test (real mouse events, downloads, `/docs`) |
 | Narrow screens | Pass | automated browser test at 375 px and 320 px |
+| Incomplete scans are never shown as clean or improved | Pass | automated browser test: dashboard, trend chart, Compare (D32, D33) |
 | Secret handling | Pass | no fixture secret in the database, API payloads, exports or logs |
 | Request hardening | Pass | Host allowlist (DNS rebinding), Origin and fetch-metadata checks, JSON-only writes, strict CSP, no CDN |
 | Scan policy integrity | Pass | scanned projects cannot suppress Gitleaks findings (F-01) |
 | Timeout recovery | Pass | macOS and Windows, including a detached grandchild |
 | Python dependencies | Pass | 0 known vulnerabilities in the pinned `requirements.txt` |
 | Coverage | 93 % | line + branch, unit suite |
-| Windows | Pass for `92a0c8e` | GitHub Actions `windows-latest`: 160 unit + 2 real-scanner tests |
+| Windows | Pass for `1f7e1b2` | GitHub Actions `windows-latest`: 165 unit + 2 real-scanner tests |
 
 ## Remaining risks and known limitations
 

@@ -1,5 +1,5 @@
 import { api, qs } from "../api.js";
-import { CATEGORY_LABEL, baseName, empty, errorBox, fmtTime, h, loading, mount, statusBadge } from "../dom.js";
+import { CATEGORY_LABEL, baseName, empty, errorBox, fmtTime, h, isIncomplete, loading, mount, riskText, statusBadge, statusLabel } from "../dom.js";
 import { navigate } from "../router.js";
 import { findingsTable, openFindingDrawer } from "./components.js";
 
@@ -12,10 +12,14 @@ export async function compare(root, ctx) {
       h("a", { class: "btn primary", href: "#/scans/new", text: "New scan" }))));
     return;
   }
-  // Default: the two most recent scans of the latest target.
-  const same = list.filter((s) => s.target_path === list[0].target_path);
-  let base = Number(ctx.query.get("base")) || (same[1] ?? list[1]).id;
-  let headId = Number(ctx.query.get("head")) || list[0].id;
+  // Default: the two most recent *completed* scans of one target, so the overall risk difference is
+  // meaningful. Falls back to the two most recent comparable scans when no target has two completed ones.
+  const done = list.filter((s) => s.status === "completed");
+  const pairTarget = done.find((s) => done.filter((x) => x.target_path === s.target_path).length >= 2)?.target_path;
+  const pair = pairTarget ? done.filter((s) => s.target_path === pairTarget)
+    : list.filter((s) => s.target_path === list[0].target_path).concat(list).slice(0, 2);
+  let base = Number(ctx.query.get("base")) || pair[1].id;
+  let headId = Number(ctx.query.get("head")) || pair[0].id;
 
   const option = (s, sel) => h("option", { value: s.id, selected: s.id === sel,
     text: `#${s.id} · ${baseName(s.target_path)} · ${fmtTime(s.started_at)}${s.label ? " · " + s.label : ""}${s.status === "partial" ? " · partial" : ""}` });
@@ -33,6 +37,7 @@ export async function compare(root, ctx) {
   try { r = await api.get("/compare" + qs({ base, head: headId })); } catch (err) { mount(out, errorBox(err)); return; }
 
   const d = r.risk.delta;
+  const incompleteScans = [r.base, r.head].filter(isIncomplete);
   const stat = (label, value, cls) => h("div", { class: "card" }, h("div", { class: "stat-label", text: label }), h("div", { class: "stat " + (cls || ""), text: String(value) }));
   let active = ctx.query.get("tab") || "new";
   const tabBox = h("div", {});
@@ -52,8 +57,10 @@ export async function compare(root, ctx) {
       stat("New", r.totals.new, r.totals.new ? "delta-up" : ""), stat("Resolved", r.totals.resolved, r.totals.resolved ? "delta-down" : ""),
       stat("Persistent", r.totals.persistent),
       h("div", { class: "card" }, h("div", { class: "stat-label", text: "Risk score" }),
-        h("div", { class: "stat", text: `${r.risk.base ?? "—"} → ${r.risk.head ?? "—"}` }),
-        d === null ? null : h("p", { class: d > 0 ? "delta-up" : d < 0 ? "delta-down" : "muted", text: d > 0 ? `+${d} (higher)` : d < 0 ? `${d} (lower)` : "No change" }),
+        h("div", { class: "stat", text: `${riskText(r.risk.base, isIncomplete(r.base))} → ${riskText(r.risk.head, isIncomplete(r.head))}` }),
+        // A score from an incomplete scan only counts the scanners that ran, so a drop is not an improvement.
+        incompleteScans.length ? h("p", { class: "delta-na", text: `Not directly comparable — ${incompleteScans.map((s) => `scan #${s.id} is incomplete (${statusLabel(s.status).toLowerCase()})`).join(", ")}.` })
+        : d === null ? null : h("p", { class: d > 0 ? "delta-up" : d < 0 ? "delta-down" : "muted", text: d > 0 ? `+${d} (higher)` : d < 0 ? `${d} (lower)` : "No change" }),
         h("p", { class: "small muted", text: "Heuristic indicator, not a CVSS score." }))),
     h("section", { class: "section" }, h("h2", { text: "By category" }), h("div", { class: "grid grid-3" }, r.categories.map((c) =>
       h("div", { class: "card" }, h("h3", { text: CATEGORY_LABEL[c.category] }),

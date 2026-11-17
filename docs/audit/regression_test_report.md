@@ -6,17 +6,18 @@ Date: 2026-11-17. Local machine: macOS, Python 3.12, Trivy 0.76.2, Gitleaks 8.30
 
 | Check | Command | Result |
 |-------|---------|--------|
-| Unit and API tests | `.venv/bin/pytest -q` | 165 passed, 0 failed, 0 skipped (5 integration tests deselected) |
-| Integration tests (real scanners, headless Chrome) | `.venv/bin/pytest -q -m integration` | 5 passed |
+| Unit and API tests | `.venv/bin/pytest -q` | 165 passed, 0 failed, 0 skipped (6 integration tests deselected) |
+| Integration tests (real scanners, headless Chrome) | `.venv/bin/pytest -q -m integration` | 6 passed |
 | Regression tests on pre-fix code | new test file run in a worktree of `78ee6a6` | 15 failed, 1 passed (the F-09 test, expected) |
 | Browser journey script | headless Chrome over DevTools protocol, two isolated servers | 65 of 65 checks passed, 281 requests, none outside `127.0.0.1`, no console or CSP errors, no server tracebacks |
 | Narrow viewports | `.venv/bin/pytest -q -m integration -k narrow` (375 px and 320 px, six routes) | 2 passed; with the pre-fix stylesheet both fail (History 866 px wide) |
 | Linux smoke test | unit suite and app start in a `python:3.12-slim` container (aarch64, non-root user) | 165 passed; `/api/health` and `/` respond; scanners not installed there |
 | Secret leak check | `strings <db> \| grep -F -f tests/fixture_secrets.txt` | 0 matches |
 | Python dependency vulnerabilities | `trivy fs --scanners vuln requirements.txt` | 0 |
-| Windows + macOS CI | GitHub Actions run for `92a0c8e` | both jobs passed: 160 unit + 2 real-scanner tests each |
+| Incomplete scans in the UI (D32, D33) | `.venv/bin/pytest -q -m integration -k incomplete` | 1 passed; fails with the pre-change UI code (a failed scan showed risk "0", a partial scan was compared as "-N (lower)") |
+| Windows + macOS CI | GitHub Actions run for `1f7e1b2` | both jobs passed: 165 unit + 2 real-scanner tests each |
 
-Totals on macOS: **170 passed, 0 failed, 0 blocked, 0 skipped.**
+Totals on macOS: **171 passed, 0 failed, 0 blocked, 0 skipped.**
 
 ## Regression test per finding
 

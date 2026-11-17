@@ -28,7 +28,11 @@ export function severityBar(bySeverity) {
 
 // scans: oldest -> newest, each {id, risk_score, status}
 export function trendChart(scans) {
-  const pts = scans.filter((x) => x.risk_score !== null && x.risk_score !== undefined);
+  const incompleteScan = (x) => x.incomplete ?? ["partial", "failed"].includes(x.status);
+  const scored = scans.filter((x) => x.risk_score !== null && x.risk_score !== undefined);
+  // An incomplete scan with a score of 0 has no score to plot; drawing it would look like a drop to "clean".
+  const pts = scored.filter((x) => !(incompleteScan(x) && x.risk_score === 0));
+  const unplotted = scored.length - pts.length;
   if (pts.length < 2) return h("p", { class: "muted", text: "At least two finished scans of this target are needed to draw a trend." });
   const W = 600, H = 180, L = 36, R = 14, T = 14, B = 26;
   const max = Math.max(10, ...pts.map((p) => p.risk_score));
@@ -51,5 +55,7 @@ export function trendChart(scans) {
         s("title", {}, `Scan #${p.id}: ${p.risk_score}${note(p)}`)),
       s("text", { x: X(i), y: H - 8, "text-anchor": "middle" }, `#${p.id}`));
   });
-  return h("div", {}, svg, h("p", { class: "small muted", text: "Hollow points are partial or failed scans (some scanners did not run); their score is incomplete." }));
+  return h("div", {}, svg,
+    h("p", { class: "small muted", text: "Hollow points are partial or failed scans (some scanners did not run); their score is a lower bound." }),
+    unplotted ? h("p", { class: "small muted", text: `${unplotted} incomplete scan(s) without a usable score are not plotted.` }) : null);
 }

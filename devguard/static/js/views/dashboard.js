@@ -1,6 +1,6 @@
 import { api, qs } from "../api.js";
 import { severityBar, trendChart } from "../charts.js";
-import { baseName, empty, fmtDuration, fmtTime, h, mount, statusBadge, table } from "../dom.js";
+import { baseName, empty, fmtDuration, fmtTime, h, isIncomplete, mount, riskText, statusBadge, table } from "../dom.js";
 import { categoryCards, incompleteBanner, riskCard } from "./components.js";
 
 export function toolStrip(tools) {
@@ -20,7 +20,7 @@ export const scanRow = (s) => h("tr", {},
   h("td", { class: "num", text: fmtDuration(s.elapsed_ms) }),
   h("td", { class: "num" }, s.incomplete ? h("span", { class: "badge st-warn", text: "Incomplete" })
     : (s.status === "completed" ? String(s.findings_total) : "—")),
-  h("td", { class: "num", text: s.risk_score ?? "—" }));
+  h("td", { class: "num", text: riskText(s.risk_score, isIncomplete(s)) }));
 export const SCAN_HEADERS = ["Scan", "Time", "Target", "Label", "Status", "Duration", "Findings", "Risk"];
 
 export async function dashboard(root) {

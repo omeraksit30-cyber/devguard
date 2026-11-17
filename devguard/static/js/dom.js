@@ -39,6 +39,10 @@ export const statusLabel = (st) => (STATUS[st] ?? [cap(String(st))])[0];
 export const statusBadge = (st) => h("span", { class: "badge " + (STATUS[st]?.[1] ?? "st-neutral"), text: statusLabel(st) });
 export const severityBadge = (sev) => h("span", { class: "badge sev-" + sev, text: cap(sev) });
 export const riskLevelLabel = (lvl) => (lvl ? cap(lvl) : "—");
+// An incomplete scan (partial or failed) with a score of 0 has no meaningful score: the scanners
+// that would have contributed did not run. Show a dash, never a "0" that reads as "clean".
+export const isIncomplete = (scan) => scan.incomplete ?? ["partial", "failed"].includes(scan.status);
+export const riskText = (score, incomplete) => (score === null || score === undefined || (incomplete && score === 0) ? "—" : String(score));
 
 export function fmtTime(iso) {
   if (!iso) return "—";

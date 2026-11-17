@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { CATEGORIES, CATEGORY_LABEL, errorBox, fmtDuration, fmtTime, h, mount, statusBadge, statusLabel, table } from "../dom.js";
+import { CATEGORIES, CATEGORY_LABEL, errorBox, fmtDuration, fmtTime, h, isIncomplete, mount, riskText, statusBadge, statusLabel, table } from "../dom.js";
 
 function results(run) {
   const res = run.results;
@@ -22,7 +22,7 @@ function results(run) {
         Object.entries(res.scans).map(([name, s]) => h("tr", {},
           h("td", {}, h("a", { href: `#/scans/${s.id}`, text: `#${s.id} ${name.replace("_", " ")}` })), h("td", {}, statusBadge(s.status)),
           h("td", { class: "num", text: fmtDuration(s.elapsed_ms) }), CATEGORIES.map((c) => h("td", { class: "num", text: cell(s, c) })),
-          h("td", { class: "num", text: s.risk_score ?? "—" })))))),
+          h("td", { class: "num", text: riskText(s.risk_score, isIncomplete(s)) })))))),
     comp ? h("section", { class: "section" }, h("h2", { text: "Comparison: vulnerable-app → fixed-app" }),
       table(["Category", "New", "Resolved", "Persistent"], comp.categories.map((c) => h("tr", {},
         h("td", { text: CATEGORY_LABEL[c.category] }),

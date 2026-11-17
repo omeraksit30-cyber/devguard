@@ -1,6 +1,6 @@
 # DevGuard — Final Readiness Summary
 
-Date: 2026-11-17. Baseline: commit `92a0c8e` on `main`. The changes of this phase (listed below) are committed together with this file. Local results below were produced on that tree before committing.
+Date: 2026-11-17. Baseline: commit `1f7e1b2` on `main`. The UI-accuracy changes of this final phase (listed below) are committed together with this update. Local results below were produced on that tree before committing.
 
 ## Verdict
 
@@ -11,15 +11,16 @@ Date: 2026-11-17. Baseline: commit `92a0c8e` on `main`. The changes of this phas
 | Check | Command or method | Result |
 |-------|-------------------|--------|
 | Unit and API tests (macOS) | `.venv/bin/pytest -q` | **PASS** — 165 passed |
-| Integration tests (macOS) | `.venv/bin/pytest -q -m integration` | **PASS** — 5 passed (real Trivy 0.76.2 and Gitleaks 8.30.1, headless Chrome) |
+| Integration tests (macOS) | `.venv/bin/pytest -q -m integration` | **PASS** — 6 passed (real Trivy 0.76.2 and Gitleaks 8.30.1, headless Chrome) |
 | Audit regressions F-01 … F-09 | `tests/test_audit_regressions.py`, `tests/test_browser_cdp.py -k narrow` | **PASS** — all pass now; on pre-fix code (`78ee6a6`) 15 of 16 fail, and both narrow-viewport tests fail with the pre-fix stylesheet |
 | Browser journeys | headless-Chrome script, 65 checks, two isolated servers | **PASS** — 65 of 65; no request outside `127.0.0.1`; no console or CSP error |
 | Narrow screens | automated, 375 px and 320 px, six routes | **PASS** |
+| Incomplete scans never read as clean or improved | `.venv/bin/pytest -q -m integration -k incomplete` | **PASS** — fails with the pre-change UI code |
 | Secret leak check | `strings <db> \| grep -F -f tests/fixture_secrets.txt` | **PASS** — 0 matches |
 | Python dependency vulnerabilities | `trivy fs --scanners vuln requirements.txt` | **PASS** — 0 |
 | Coverage | coverage.py, branch mode, unit suite | **93 %** (1373 statements, 79 missed; 332 branches, 34 partial) |
-| Windows, commit `92a0c8e` | GitHub Actions `windows-latest` | **PASS** — 160 unit + 2 real-scanner tests |
-| Windows, the commit containing this file | GitHub Actions `windows-latest` | see the Actions run for that commit; not known at the time of writing |
+| macOS and Windows, commit `1f7e1b2` | GitHub Actions `macos-latest`, `windows-latest` | **PASS** — 165 unit + 2 real-scanner tests on each |
+| macOS and Windows, the commit containing this update | GitHub Actions | see the Actions run for that commit; not known at the time of writing |
 | Windows, UI in a browser | — | **NOT VERIFIED** |
 | Linux smoke test | unit suite + app start in `python:3.12-slim` (aarch64, non-root) | **PASS** — 165 passed; `/api/health` and `/` respond |
 | Linux, real scanners and UI | — | **NOT VERIFIED** |
@@ -33,15 +34,16 @@ Date: 2026-11-17. Baseline: commit `92a0c8e` on `main`. The changes of this phas
 - README, specification and implementation: no contradiction found on scanners, statuses, risk weights and levels, triage re-scoring, configuration keys or API paths (`docs/API.md` and `docs/DATA_MODEL.md` were compared with the registered routes and the schema earlier, at `edf68e8`, and the endpoints added since are documented).
 - One inaccuracy remains by choice: on Linux the in-app install hint suggests Homebrew. Linux is not a supported target.
 
-## Changes made in this phase
+## Changes made in the final phase (UI accuracy)
 
-- `tests/test_browser_cdp.py` — `test_browser_no_horizontal_overflow_on_narrow_screens` (375 px, 320 px).
-- `devguard/static/css/app.css` — grid columns, grid cells and form fields may shrink to the viewport (fixes overflow at 320 px).
-- `tests/test_audit_regressions.py` — triage re-scoring when the newer scan is queued, running, completed, partial or failed.
-- `README.md` — purpose, architecture, scan workflow, risk levels, security design, testing method, tested platforms.
-- `docs/audit/` — `remediation_report.md`, `regression_test_report.md`, `production_readiness_report.md`, this file.
+Two misleading displays were reproduced on real data and fixed in the browser UI only (API, stored scores and scoring rules unchanged; DECISIONS D32, D33):
 
-No application logic changed in this phase apart from the stylesheet.
+- A failed scan showed a risk score of "0" on the dashboard; an incomplete scan with score 0 now shows "—" ("No score available"), and a partial scan's score is labelled a lower bound.
+- Comparing a completed scan with a partial one showed a green "-20 (lower)" that came only from the scanner that did not run; the Compare page now shows "Not directly comparable" when either scan is incomplete, and by default selects the two most recent completed scans of one target.
+- The risk trend no longer plots incomplete scans that have no usable score.
+- Files: `devguard/static/js/{dom,charts}.js`, `devguard/static/js/views/{compare,components,dashboard,evaluation}.js`, `devguard/static/css/app.css` (one rule), `tests/test_browser_cdp.py` (`test_browser_incomplete_scans_never_read_as_clean_or_improved`), `docs/DECISIONS.md`, `docs/audit/`.
+
+Earlier phase (commit `1f7e1b2`): narrow-screen fixes and test, triage re-scoring tests, README sections, audit reports.
 
 ## Outstanding limitations
 
@@ -55,5 +57,7 @@ No application logic changed in this phase apart from the stylesheet.
 
 ## Still open after this commit
 
-1. Confirm that the GitHub Actions run for this commit passes on both `macos-latest` and `windows-latest`.
+1. Confirm that the GitHub Actions run for this commit passes on both `macos-latest` and `windows-latest` (the run is linked from the commit on GitHub).
 2. Optional: open the UI once in a browser on Windows.
+
+After this commit DevGuard is feature-frozen for academic submission; only confirmed critical defects justify further code changes.
